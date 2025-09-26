@@ -3,14 +3,20 @@
 
 use starknet::ContractAddress;
 
+// ===============================
+// Membership NFT Interface
+// ===============================
+
 #[starknet::interface]
 trait IMembershipNFT<TContractState> {
+    // Membership functions
     fn mint_membership(ref self: TContractState, user: ContractAddress, tier: u8);
     fn burn_membership(ref self: TContractState, user: ContractAddress);
     fn get_membership_status(self: @TContractState, user: ContractAddress) -> bool;
     fn get_membership_start_date(self: @TContractState, user: ContractAddress) -> u64;
     fn get_loyalty_tier(self: @TContractState, user: ContractAddress) -> u8;
     fn get_yield_engine(self: @TContractState) -> ContractAddress;
+    // Yield engine functions
     fn set_yield_engine(ref self: TContractState, yield_engine: ContractAddress);
     fn set_tier(ref self: TContractState, user: ContractAddress, tier: u8);
 }
@@ -22,6 +28,10 @@ struct MembershipData {
     active: bool,
     token_id: u256,
 }
+
+// ===============================
+// Membership NFT Contract
+// ===============================
 
 #[starknet::contract]
 mod MembershipNFT {
@@ -39,6 +49,11 @@ mod MembershipNFT {
     impl ERC721InternalImpl = ERC721Component::InternalImpl<ContractState>;
     impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
 
+
+    // ===============================
+    // Storage
+    // ===============================
+
     #[storage]
     struct Storage {
         #[substorage(v0)]
@@ -53,6 +68,10 @@ mod MembershipNFT {
         next_token_id: u256,
     }
 
+    // ===============================
+    // Events
+    // ===============================
+
     #[event]
     #[derive(Drop, starknet::Event)]
     enum Event {
@@ -64,6 +83,10 @@ mod MembershipNFT {
         OwnableEvent: OwnableComponent::Event,
     }
 
+    // ===============================
+    // Constructor
+    // ===============================
+
     #[constructor]
     fn constructor(ref self: ContractState, owner: ContractAddress, yield_engine: ContractAddress) {
         self.erc721.initializer("Deportes Mas Subscription", "DMSUB", "");
@@ -73,7 +96,10 @@ mod MembershipNFT {
         self.next_token_id.write(1);
     }
 
+    // ===============================
     // External
+    // ===============================
+
     #[abi(embed_v0)]
     impl ERC721MixinImpl = ERC721Component::ERC721MixinImpl<ContractState>;
     #[abi(embed_v0)]
