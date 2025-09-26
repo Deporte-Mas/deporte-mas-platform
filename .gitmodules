@@ -1,0 +1,3 @@
+[submodule "docs/knowledge-library"]
+	path = docs/knowledge-library
+	url = git@github.com:Deporte-Mas/knowledge-library.git
