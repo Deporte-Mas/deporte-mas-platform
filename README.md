@@ -1,154 +1,348 @@
-# DeporteMas Platform Documentation
+# DeporteMas Platform
 
 > **Transforming Costa Rica's most beloved sports program into an intimate digital community where legendary players and passionate fans experience football together every day.**
 
-## 📖 Overview
+## 🏗️ Project Structure
 
-This repository contains the comprehensive documentation for the **DeporteMas Digital Platform** - the evolution of Costa Rica's most popular sports TV show into a premium digital community platform. The documentation covers the complete vision, technical specifications, and implementation roadmap for building the digital home of Costa Rican football culture.
-
-## 🎯 Project Vision
-
-DeporteMas Digital is creating a platform where:
-
-- **Legends become accessible** - Not as distant TV personalities, but as approachable mentors sharing insights in private community spaces
-- **Fans become family** - Moving beyond passive consumption to active participation with direct access to heroes
-- **Moments become collectible** - Historic content transformed into digital assets through invisible blockchain technology
-- **Community becomes currency** - Engagement rewarded with exclusive experiences and growing value over time
-
-## 📋 Documentation Structure
-
-### [📺 Vision Document](vision.md)
-The foundational vision outlining the opportunity, what we're creating, and the long-term impact on Costa Rican sports culture.
-
-**Key Highlights:**
-- Market opportunity with 500,000 weekly viewers
-- Transformation from appointment television to daily digital community
-- Vision to become the heartbeat of Costa Rican sports culture
-
-### [🚀 MVP Specification](mvp.md)
-Complete technical specification for the Minimum Viable Product launch.
-
-**Core Features:**
-- **Web Platform**: Payment funnel with Stripe integration
-- **Mobile App**: Live streaming, VOD library, real-time chat
-- **Invisible Web3**: Three-token system with automatic wallet creation
-- **Community Integration**: Private Facebook group automation
-- **Fair Giveaways**: Blockchain-verified prize distribution
-
-**Technical Stack:**
-- Frontend: React + Expo
-- Backend: Supabase
-- Blockchain: Starknet with Account Abstraction
-- Streaming: Mux SDK
-- Payments: Stripe
-
-### [⚡ Enhanced Features](features.md)
-Comprehensive feature specification covering all advanced functionality planned for the platform.
-
-**Feature Categories:**
-- Live streaming with real-time chat and moderation
-- Advanced video-on-demand with smart recommendations
-- Educational courses and learning modules
-- Advanced predictions and gaming systems
-- Comprehensive administrative dashboard
-- Mobile-optimized user experience
-
-### [🔗 Web3 Integration](web3-angle.md)
-Detailed specification of the invisible blockchain layer powering the platform.
-
-**Innovation Highlights:**
-- **Yield-generating memberships** that automatically earn points
-- **Invisible wallet experience** with no crypto complexity
-- **Three-token economy**: Membership NFTs, Community Points, Achievement Badges
-- **Provably fair giveaways** using blockchain verification
-- **Social recovery** with email/phone authentication
-
-## 🏗️ Platform Architecture
+This repository contains the complete **DeporteMas Digital Platform** organized as a simple monorepo:
 
 ```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Web Landing   │────│   Mobile App     │────│  Admin Panel    │
-│   (Payment)     │    │  (Core Exp.)     │    │  (Management)   │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-         │                       │                       │
-         └───────────────────────┼───────────────────────┘
-                                 │
-         ┌─────────────────────────────────────────────────────────┐
-         │                Supabase Backend                         │
-         │  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────┐│
-         │  │ PostgreSQL  │ │    Auth     │ │   Edge Functions    ││
-         │  │  Database   │ │   System    │ │   (Serverless)      ││
-         │  └─────────────┘ └─────────────┘ └─────────────────────┘│
-         └─────────────────────────────────────────────────────────┘
-                                 │
-         ┌─────────────────────────────────────────────────────────┐
-         │              Invisible Web3 Layer                       │
-         │  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────┐│
-         │  │  Starknet   │ │   Smart     │ │   Account           ││
-         │  │  Network    │ │ Contracts   │ │  Abstraction        ││
-         │  └─────────────┘ └─────────────┘ └─────────────────────┘│
-         └─────────────────────────────────────────────────────────┘
+deporte-mas-platform/
+├── deporte-mas-landing/        # Landing page with Stripe payments & auth
+├── deporte-mas-admin/          # Admin dashboard for user management
+├── deporte-mas-mobile/         # Mobile app (React Native)
+├── deporte-mas-contracts/      # Smart contracts (Starknet)
+├── supabase/                   # Shared backend infrastructure
+│   ├── functions/              # Edge functions for payments & webhooks
+│   ├── migrations/             # Database schemas
+│   └── config.toml            # Supabase configuration
+└── docs/                       # Documentation & implementation guides
 ```
 
-## 💰 Business Model
+## 🚀 Quick Start
 
-- **Subscription Revenue**: ₡10,000/month premium memberships
-- **Community Engagement**: Facebook group integration with 500K+ potential members
-- **Invisible Value Creation**: Blockchain-powered loyalty system that increases over time
-- **Exclusive Experiences**: VIP events, live show attendance, direct legend access
+### Prerequisites
 
-## 🎮 User Experience Flow
+- Node.js 18+
+- npm/yarn/pnpm (any package manager)
+- Supabase CLI (for backend deployment)
+- Stripe account (for payments)
 
-1. **Discovery** → Social media or TV mention drives to landing page
-2. **Subscription** → ₡10,000/month payment via Stripe
-3. **Mobile App** → Download and automatic account sync
-4. **Invisible Onboarding** → Wallet creation and membership token minting
-5. **Community Access** → Automatic Facebook group invitation
-6. **Engagement Loop** → Daily points earning through participation
-7. **Loyalty Rewards** → Growing benefits and exclusive access over time
+### 1. Setup Landing Page
 
-## 🔧 Development Roadmap
+```bash
+# Navigate to landing page
+cd deporte-mas-landing
 
-### Phase 1: MVP (Months 1-3)
-- Core streaming and VOD functionality
-- Basic Web3 integration
-- Facebook community automation
-- Simple giveaway system
+# Install dependencies
+npm install
 
-### Phase 2: Enhanced Features (Months 4-6)
-- Advanced chat and moderation
-- Course and educational content
-- Enhanced prediction systems
-- Mobile optimization
+# Copy environment variables
+cp .env.example .env
+# Fill in your Supabase and Stripe keys
 
-### Phase 3: Ecosystem Expansion (Months 7-12)
-- Advanced Web3 features
-- Partner integrations
-- Real-money utility bridges
-- Platform governance
+# Start development server
+npm run dev
+# Landing page: http://localhost:8080
+```
 
-## 🔒 Privacy & Security
+### 2. Setup Admin Dashboard
 
-- **GDPR Compliance**: Full data export and deletion capabilities
-- **Content Moderation**: AI + human moderation systems
-- **Blockchain Security**: Smart contract audits and formal verification
-- **User Privacy**: Granular privacy controls and data minimization
+```bash
+# Navigate to admin dashboard
+cd deporte-mas-admin
 
-## 🌟 Innovation Highlights
+# Install dependencies
+npm install
 
-- **First invisible blockchain onboarding** at mainstream scale
-- **Yield-generating subscription model** creating automatic value
-- **Transparent fairness** through blockchain verification
-- **Scalable community tokenization** template for other industries
+# Copy environment variables
+cp .env.example .env
+# Fill in your Supabase keys
+
+# Start development server
+npm run dev
+# Admin dashboard: http://localhost:3001
+```
+
+### 3. Setup Backend (Supabase)
+
+```bash
+# Install Supabase CLI
+npm install -g @supabase/cli
+
+# Login and link to your project
+supabase login
+supabase link --project-ref your-project-id
+
+# Run database migrations
+supabase db push
+
+# Deploy edge functions
+supabase functions deploy create-checkout-session
+supabase functions deploy stripe-webhook
+supabase functions deploy facebook-conversion
+```
+
+## 🛠️ Environment Variables
+
+### Core Variables (Required)
+
+Create `.env` files in the root and each app directory with these variables:
+
+#### Supabase (Required)
+```bash
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+```
+
+#### Stripe (Required for payments)
+```bash
+VITE_STRIPE_PUBLISHABLE_KEY=pk_test_your-test-publishable-key
+STRIPE_TEST_SECRET_KEY=sk_test_your-test-secret-key
+STRIPE_SECRET_KEY=sk_live_your-live-secret-key
+STRIPE_WEBHOOK_SECRET=whsec_your-webhook-secret
+```
+
+#### Development Mode
+```bash
+VITE_DEV_MODE=true  # Use test keys when true, live keys when false
+```
+
+### Optional Variables
+
+#### Meta Conversion API (for Facebook tracking)
+```bash
+META_ACCESS_TOKEN=your-meta-access-token
+META_PIXEL_ID=your-pixel-id
+```
+
+#### CRM Integration
+```bash
+ZAPIER_WEBHOOK_URL=your-zapier-webhook-url
+```
+
+## 🏗️ Backend Setup (Supabase)
+
+### 1. Create Supabase Project
+
+1. Go to [supabase.com](https://supabase.com)
+2. Create a new project
+3. Get your project URL and anon key
+
+### 2. Run Database Migrations
+
+```bash
+# Install Supabase CLI
+npm install -g @supabase/cli
+
+# Login to Supabase
+supabase login
+
+# Link to your project
+supabase link --project-ref your-project-id
+
+# Run migrations
+supabase db push
+```
+
+### 3. Deploy Edge Functions
+
+```bash
+# Deploy all functions
+supabase functions deploy create-checkout-session
+supabase functions deploy stripe-webhook
+supabase functions deploy facebook-conversion
+
+# Set environment secrets
+supabase secrets set STRIPE_TEST_SECRET_KEY=sk_test_your_key
+supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_your_secret
+# ... add other secrets as needed
+```
+
+## 💳 Stripe Setup
+
+### 1. Create Products
+
+Create test products in your Stripe dashboard:
+
+```bash
+# Monthly subscription
+stripe products create --name "Deporte+ Club Monthly" --description "Monthly subscription to Deporte+ Club"
+
+# Annual subscription
+stripe products create --name "Deporte+ Club Annual" --description "Annual subscription to Deporte+ Club"
+
+# Create prices for each product
+stripe prices create --product prod_YOUR_MONTHLY_ID --unit-amount 2000 --currency usd --recurring-interval month
+stripe prices create --product prod_YOUR_ANNUAL_ID --unit-amount 18000 --currency usd --recurring-interval year
+```
+
+### 2. Configure Webhooks
+
+1. Go to Stripe Dashboard → Webhooks
+2. Add endpoint: `https://your-project.supabase.co/functions/v1/stripe-webhook`
+3. Select events:
+   - `checkout.session.completed`
+   - `customer.subscription.created`
+   - `customer.subscription.updated`
+   - `customer.subscription.deleted`
+   - `invoice.payment_succeeded`
+   - `invoice.payment_failed`
+
+### 3. Update Product IDs
+
+Update the product IDs in `supabase/functions/create-checkout-session/index.ts`:
+
+```typescript
+const getProductConfig = (plan: string, isDev: boolean) => {
+  if (isDev) {
+    return plan === 'annual'
+      ? { priceId: "price_YOUR_TEST_ANNUAL_ID", productId: "prod_YOUR_TEST_ANNUAL_ID" }
+      : { priceId: "price_YOUR_TEST_MONTHLY_ID", productId: "prod_YOUR_TEST_MONTHLY_ID" };
+  } else {
+    // Live product IDs for production
+    return plan === 'annual'
+      ? { priceId: "price_YOUR_LIVE_ANNUAL_ID", productId: "prod_YOUR_LIVE_ANNUAL_ID" }
+      : { priceId: "price_YOUR_LIVE_MONTHLY_ID", productId: "prod_YOUR_LIVE_MONTHLY_ID" };
+  }
+};
+```
+
+## 📊 Features
+
+### ✅ Implemented
+
+- **Landing Page** - Responsive design with Stripe checkout integration
+- **Stripe Payments** - Embedded checkout with subscription management
+- **User Authentication** - Complete auth flow with Supabase
+- **Admin Dashboard** - User, subscription, and payment management
+- **Facebook Tracking** - Meta Conversion API integration
+- **Database Schema** - Production-ready with proper relationships
+- **Edge Functions** - Secure payment processing and webhooks
+- **Clean Architecture** - Standalone projects in simple monorepo
+
+### 🚧 To Be Implemented
+
+- **Mobile App** (React Native)
+- **Smart Contracts** (Starknet integration)
+- **Video Streaming** (Mux integration)
+- **Real-time Chat** functionality
+- **Push Notifications**
+- **Advanced Analytics**
+
+## 🛠️ Development Commands
+
+### Landing Page
+```bash
+cd deporte-mas-landing
+npm run dev          # Development server
+npm run build        # Production build
+npm run lint         # Code linting
+npm run typecheck    # Type checking
+```
+
+### Admin Dashboard
+```bash
+cd deporte-mas-admin
+npm run dev          # Development server
+npm run build        # Production build
+npm run lint         # Code linting
+npm run typecheck    # Type checking
+```
+
+### Backend
+```bash
+# Generate types from Supabase
+supabase gen types typescript --project-id $PROJECT_ID > supabase/types.ts
+
+# Deploy functions
+supabase functions deploy
+
+# View logs
+supabase functions logs create-checkout-session
+```
+
+## 🏗️ Database Schema
+
+The platform uses the following main tables:
+
+- **users** - User profiles and subscription info
+- **subscriptions** - Stripe subscription details
+- **payments** - Payment history and status
+
+See `supabase/migrations/` for the complete schema.
+
+## 🔐 Security
+
+- All payments processed securely through Stripe
+- User authentication via Supabase Auth
+- Row Level Security (RLS) enabled on all tables
+- Environment variables for sensitive data
+- HTTPS enforced in production
+
+## 📝 API Documentation
+
+### Supabase Edge Functions
+
+- **create-checkout-session** - Creates Stripe checkout sessions
+- **stripe-webhook** - Handles Stripe webhook events
+- **facebook-conversion** - Sends events to Meta Conversion API
+
+### Project Architecture
+
+Each project is standalone and can be developed/deployed independently:
+
+- **deporte-mas-landing** - Landing page with Stripe payments and authentication
+- **deporte-mas-admin** - Admin dashboard for user/subscription management
+- **supabase/** - Shared backend infrastructure and edge functions
+
+## 🚀 Deployment
+
+### Landing Page
+```bash
+cd deporte-mas-landing
+npm run build
+# Deploy dist/ folder to Vercel, Netlify, or any static host
+```
+
+### Admin Dashboard
+```bash
+cd deporte-mas-admin
+npm run build
+# Deploy dist/ folder to Vercel, Netlify, or any static host
+```
+
+### Backend (Supabase)
+```bash
+# Deploy all functions
+supabase functions deploy create-checkout-session
+supabase functions deploy stripe-webhook
+supabase functions deploy facebook-conversion
+
+# Deploy database changes
+supabase db push
+```
 
 ## 🤝 Contributing
 
-This documentation repository serves as the single source of truth for the DeporteMas Digital Platform. All technical specifications, feature requirements, and architectural decisions are documented here.
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests and linting
+5. Submit a pull request
 
-For questions or clarifications about any aspect of the platform, please refer to the relevant documentation files or contact the development team.
+## 📄 License
+
+This project is private and proprietary to DeporteMas.
+
+## 🆘 Support
+
+For technical support or questions:
+- Create an issue in this repository
+- Contact the development team
+- Check the documentation in `/docs`
 
 ---
 
 **Built with ❤️ for Costa Rican football culture**
-
-*Transforming how an entire nation experiences their most beloved sport*

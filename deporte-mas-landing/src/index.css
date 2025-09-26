@@ -1,0 +1,182 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Deporte+ Club Design System - Costa Rica Sports Media Brand */
+
+@layer base {
+  :root {
+    /* Brand Colors - Deporte+ Official Palette */
+    --primary-blue-bright: 217 89% 38%;     /* #0C36B0 */
+    --primary-blue-deep: 228 81% 20%;       /* #0D1853 */
+    --emphasis-red: 359 68% 49%;            /* #D52324 */
+    --dark-navy: 230 74% 11%;               /* #040A2C */
+    --light-gray: 340 14% 93%;              /* #F2EDEF */
+    
+    /* Semantic Design Tokens - Light Theme */
+    --background: 0 0% 98%;                 /* Light background */
+    --foreground: 230 74% 11%;              /* Dark navy text */
+    
+    --card: 0 0% 100%;                      /* White cards */
+    --card-foreground: 230 74% 11%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 230 74% 11%;
+    
+    --primary: 217 89% 38%;                 /* Primary blue bright */
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 340 14% 93%;               /* Light gray */
+    --secondary-foreground: 230 74% 11%;
+    
+    --muted: 340 14% 93%;
+    --muted-foreground: 230 74% 20%;
+    
+    --accent: 359 68% 49%;                  /* Emphasis red */
+    --accent-foreground: 0 0% 100%;
+    
+    --destructive: 359 68% 49%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 340 14% 85%;
+    --input: 340 14% 85%;
+    --ring: 217 89% 38%;
+    
+    --radius: 0.75rem;
+    
+    /* Custom Gradients - Light Theme */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary-blue-bright)), hsl(var(--primary-blue-deep)));
+    --gradient-hero: linear-gradient(135deg, hsl(0 0% 98%), hsl(340 14% 95%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(340 14% 97%));
+    
+    /* Shadows */
+    --shadow-glow: 0 0 40px hsl(var(--primary-blue-bright) / 0.3);
+    --shadow-card: 0 10px 30px -10px hsl(var(--dark-navy) / 0.5);
+    --shadow-intense: 0 20px 50px -15px hsl(var(--primary-blue-bright) / 0.4);
+    
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    /* Keep same colors - Deporte+ brand works best on dark */
+    --background: 230 74% 11%;
+    --foreground: 340 14% 93%;
+    --card: 228 81% 20%;
+    --card-foreground: 340 14% 93%;
+    --popover: 228 81% 20%;
+    --popover-foreground: 340 14% 93%;
+    --primary: 217 89% 38%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 228 81% 20%;
+    --secondary-foreground: 340 14% 93%;
+    --muted: 228 81% 20%;
+    --muted-foreground: 340 14% 73%;
+    --accent: 359 68% 49%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 359 68% 49%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 228 81% 30%;
+    --input: 228 81% 30%;
+    --ring: 217 89% 38%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body;
+  }
+  
+  /* Typography */
+  h1, h2, h3, h4, h5, h6, .font-headline {
+    font-family: 'Anton', sans-serif;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  
+  .font-body {
+    font-family: 'Montserrat', sans-serif;
+  }
+  
+  /* Custom utility classes */
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+  
+  .gradient-hero {
+    background: var(--gradient-hero);
+  }
+  
+  .gradient-card {
+    background: var(--gradient-card);
+  }
+  
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+  
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+  
+  .shadow-intense {
+    box-shadow: var(--shadow-intense);
+  }
+  
+  .transition-smooth {
+    transition: var(--transition-smooth);
+  }
+  
+  .transition-bounce {
+    transition: var(--transition-bounce);
+  }
+}
+
+@layer base {
+  :root {
+    --brand: 27 96% 61%;
+    --brand-foreground: 31 97% 72%;
+  }
+ 
+  .dark {
+    --brand: 31 97% 72%;
+    --brand-foreground: 27 96% 61%
+  }
+}
+
+@layer utilities {
+  .delay-100 {
+    animation-delay: 100ms;
+  }
+  .delay-300 {
+    animation-delay: 300ms;
+  }
+  .delay-700 {
+    animation-delay: 700ms;
+  }
+  .delay-1000 {
+    animation-delay: 1000ms;
+  }
+}
