@@ -20,7 +20,20 @@ serve(async (req) => {
     }
 
     const body = await req.text();
-    const devMode = Deno.env.get('VITE_DEV_MODE') === 'true';
+
+    // Environment configuration - check multiple ways to determine mode
+    const devModeEnv = Deno.env.get('VITE_DEV_MODE');
+    const nodeEnv = Deno.env.get('NODE_ENV');
+    const supabaseEnv = Deno.env.get('SUPABASE_ENVIRONMENT');
+
+    // Determine if we're in development mode
+    const devMode = devModeEnv === 'true' ||
+                   nodeEnv === 'development' ||
+                   supabaseEnv === 'development' ||
+                   (!devModeEnv && !nodeEnv && !supabaseEnv); // Default to dev if not specified
+
+    console.log(`Webhook running in ${devMode ? 'development' : 'production'} mode`);
+
     const stripeSecretKey = devMode
       ? Deno.env.get('STRIPE_TEST_SECRET_KEY')
       : Deno.env.get('STRIPE_SECRET_KEY');
