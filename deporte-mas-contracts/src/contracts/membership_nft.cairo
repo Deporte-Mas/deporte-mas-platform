@@ -49,7 +49,6 @@ mod MembershipNFT {
     impl ERC721InternalImpl = ERC721Component::InternalImpl<ContractState>;
     impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
 
-
     // ===============================
     // Storage
     // ===============================
@@ -99,9 +98,6 @@ mod MembershipNFT {
     // ===============================
     // External
     // ===============================
-
-    #[abi(embed_v0)]
-    impl ERC721MixinImpl = ERC721Component::ERC721MixinImpl<ContractState>;
     #[abi(embed_v0)]
     impl OwnableMixinImpl = OwnableComponent::OwnableMixinImpl<ContractState>;
     #[abi(embed_v0)]
