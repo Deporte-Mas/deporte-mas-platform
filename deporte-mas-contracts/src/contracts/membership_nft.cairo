@@ -10,6 +10,9 @@ trait IMembershipNFT<TContractState> {
     fn get_membership_status(self: @TContractState, user: ContractAddress) -> bool;
     fn get_membership_start_date(self: @TContractState, user: ContractAddress) -> u64;
     fn get_loyalty_tier(self: @TContractState, user: ContractAddress) -> u8;
+    fn get_yield_engine(self: @TContractState) -> ContractAddress;
+    fn set_yield_engine(ref self: TContractState, yield_engine: ContractAddress);
+    fn set_tier(ref self: TContractState, user: ContractAddress, tier: u8);
 }
 
 #[derive(Drop, Serde, starknet::Store)]
@@ -131,6 +134,27 @@ mod MembershipNFT {
         fn get_loyalty_tier(self: @ContractState, user: ContractAddress) -> u8 {
             let membership_data = self.memberships.read(user);
             membership_data.tier
+        }
+
+        fn get_yield_engine(self: @ContractState) -> ContractAddress {
+            self.yield_engine.read()
+        }
+
+        fn set_yield_engine(ref self: ContractState, yield_engine: ContractAddress) {
+            self.ownable.assert_only_owner();
+            self.yield_engine.write(yield_engine);
+        }
+
+        fn set_tier(ref self: ContractState, user: ContractAddress, tier: u8) {
+            self.ownable.assert_only_owner();
+            let membership_data = self.memberships.read(user);
+            let updated_membership = MembershipData {
+                start_date: membership_data.start_date,
+                tier,
+                active: membership_data.active,
+                token_id: membership_data.token_id,
+            };
+            self.memberships.write(user, updated_membership);
         }
     }
 
