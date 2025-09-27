@@ -24,32 +24,14 @@ const Users: React.FC = () => {
     fetchUsers();
   }, []);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-100 text-green-800';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800';
-      case 'past_due':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+  const getStatusColor = (isActive: boolean) => {
+    return isActive
+      ? 'bg-green-100 text-green-800'
+      : 'bg-gray-100 text-gray-800';
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'Activa';
-      case 'cancelled':
-        return 'Cancelada';
-      case 'past_due':
-        return 'Pago Pendiente';
-      case 'inactive':
-        return 'Inactiva';
-      default:
-        return status;
-    }
+  const getStatusText = (isActive: boolean) => {
+    return isActive ? 'Activa' : 'Inactiva';
   };
 
   if (loading) {
@@ -79,8 +61,8 @@ const Users: React.FC = () => {
                 <CardTitle className="text-lg">
                   {user.name || 'Sin nombre'}
                 </CardTitle>
-                <Badge className={getStatusColor(user.subscription_status)}>
-                  {getStatusText(user.subscription_status)}
+                <Badge className={getStatusColor(user.is_active_subscriber)}>
+                  {getStatusText(user.is_active_subscriber)}
                 </Badge>
               </div>
               <CardDescription className="flex items-center">
@@ -94,10 +76,10 @@ const Users: React.FC = () => {
                 Registrado: {new Date(user.created_at).toLocaleDateString('es-ES')}
               </div>
 
-              {user.subscription_status === 'active' && (
+              {user.is_active_subscriber && user.subscription_started_at && (
                 <div className="flex items-center text-sm text-green-600">
                   <CreditCard className="w-4 h-4 mr-2" />
-                  Plan {user.plan_type === 'annual' ? 'Anual' : 'Mensual'}
+                  Suscriptor desde: {new Date(user.subscription_started_at).toLocaleDateString('es-ES')}
                 </div>
               )}
 

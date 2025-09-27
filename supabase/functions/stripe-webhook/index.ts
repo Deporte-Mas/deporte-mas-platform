@@ -41,26 +41,64 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
+    // Store webhook event for idempotency and debugging
+    const { error: eventError } = await supabase
+      .from('stripe_events')
+      .upsert({
+        id: event.id,
+        type: event.type,
+        data: event.data,
+        processed: false
+      }, {
+        onConflict: 'id'
+      });
+
+    if (eventError) {
+      console.error('Error storing webhook event:', eventError);
+    }
+
     // Handle different event types
-    switch (event.type) {
-      case "checkout.session.completed":
-        await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session, supabase);
-        break;
-      case "customer.subscription.created":
-        await handleSubscriptionCreated(event.data.object as Stripe.Subscription, supabase);
-        break;
-      case "customer.subscription.updated":
-        await handleSubscriptionUpdated(event.data.object as Stripe.Subscription, supabase);
-        break;
-      case "customer.subscription.deleted":
-        await handleSubscriptionDeleted(event.data.object as Stripe.Subscription, supabase);
-        break;
-      case "invoice.payment_succeeded":
-        await handlePaymentSucceeded(event.data.object as Stripe.Invoice, supabase);
-        break;
-      case "invoice.payment_failed":
-        await handlePaymentFailed(event.data.object as Stripe.Invoice, supabase);
-        break;
+    try {
+      switch (event.type) {
+        case "checkout.session.completed":
+          await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session, supabase);
+          break;
+        case "customer.subscription.created":
+          await handleSubscriptionCreated(event.data.object as Stripe.Subscription, supabase);
+          break;
+        case "customer.subscription.updated":
+          await handleSubscriptionUpdated(event.data.object as Stripe.Subscription, supabase);
+          break;
+        case "customer.subscription.deleted":
+          await handleSubscriptionDeleted(event.data.object as Stripe.Subscription, supabase);
+          break;
+        // Note: Payment tracking removed - Stripe handles this via API
+        default:
+          console.log(`Unhandled event type: ${event.type}`);
+      }
+
+      // Mark event as processed
+      await supabase
+        .from('stripe_events')
+        .update({
+          processed: true,
+          processed_at: new Date().toISOString()
+        })
+        .eq('id', event.id);
+
+    } catch (processError) {
+      console.error('Error processing webhook event:', processError);
+
+      // Mark event as failed
+      await supabase
+        .from('stripe_events')
+        .update({
+          processing_error: processError.message,
+          processed_at: new Date().toISOString()
+        })
+        .eq('id', event.id);
+
+      throw processError;
     }
 
     return new Response(JSON.stringify({ received: true }), {
@@ -91,28 +129,28 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
 
   console.log("Customer data from checkout:", customerData);
 
-  // Create or update user in database
+  // Update existing user with Stripe customer info (don't create new users here)
   if (customerData.email) {
     const { error } = await supabase
       .from('users')
-      .upsert({
-        email: customerData.email,
+      .update({
         name: customerData.name,
         phone: customerData.phone,
         country: customerData.country,
         stripe_customer_id: customerData.customerId,
-        stripe_subscription_id: customerData.subscriptionId,
-        subscription_status: 'active',
-        plan_type: customerData.metadata?.plan_type || 'monthly',
+        subscription_started_at: new Date().toISOString(), // First subscription
         updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'email'
-      });
+      })
+      .eq('email', customerData.email);
 
     if (error) {
-      console.error('Error upserting user:', error);
+      console.error('Error updating user with Stripe info:', error);
+      // If user doesn't exist, they need to sign up first
+      console.log('User may need to create account first before subscribing');
     }
   }
+
+  // Note: Subscription cache will be populated by subscription.created webhook
 
   // Send to integrations in parallel
   await Promise.allSettled([
@@ -124,105 +162,65 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
 async function handleSubscriptionCreated(subscription: Stripe.Subscription, supabase: any) {
   console.log("Subscription created:", subscription.id);
 
-  // Update subscription details in database
+  // Update subscription cache using helper function
   const { error } = await supabase
-    .from('subscriptions')
-    .upsert({
-      stripe_subscription_id: subscription.id,
-      stripe_customer_id: subscription.customer as string,
-      status: subscription.status,
-      current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-      current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-      plan_type: subscription.metadata?.plan_type || 'monthly',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    }, {
-      onConflict: 'stripe_subscription_id'
+    .rpc('update_subscription_cache', {
+      p_stripe_subscription_id: subscription.id,
+      p_stripe_customer_id: subscription.customer as string,
+      p_status: subscription.status,
+      p_current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+      p_current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+      p_cancel_at_period_end: subscription.cancel_at_period_end,
+      p_stripe_updated_at: new Date(subscription.created * 1000).toISOString()
     });
 
   if (error) {
-    console.error('Error creating subscription:', error);
+    console.error('Error updating subscription cache:', error);
   }
 }
 
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription, supabase: any) {
   console.log("Subscription updated:", subscription.id);
 
-  // Update subscription status
+  // Update subscription cache using helper function
   const { error } = await supabase
-    .from('subscriptions')
-    .update({
-      status: subscription.status,
-      current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-      current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-      updated_at: new Date().toISOString()
-    })
-    .eq('stripe_subscription_id', subscription.id);
+    .rpc('update_subscription_cache', {
+      p_stripe_subscription_id: subscription.id,
+      p_stripe_customer_id: subscription.customer as string,
+      p_status: subscription.status,
+      p_current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+      p_current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+      p_cancel_at_period_end: subscription.cancel_at_period_end,
+      p_stripe_updated_at: new Date(subscription.created * 1000).toISOString()
+    });
 
   if (error) {
-    console.error('Error updating subscription:', error);
+    console.error('Error updating subscription cache:', error);
   }
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription, supabase: any) {
   console.log("Subscription cancelled:", subscription.id);
 
-  // Update subscription status to cancelled
+  // Update subscription cache to canceled status - this will trigger cascade effects
   const { error } = await supabase
-    .from('subscriptions')
-    .update({
-      status: 'cancelled',
-      cancelled_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    })
-    .eq('stripe_subscription_id', subscription.id);
-
-  if (error) {
-    console.error('Error cancelling subscription:', error);
-  }
-}
-
-async function handlePaymentSucceeded(invoice: Stripe.Invoice, supabase: any) {
-  console.log("Payment succeeded for subscription:", invoice.subscription);
-
-  // Record successful payment
-  const { error } = await supabase
-    .from('payments')
-    .insert({
-      stripe_invoice_id: invoice.id,
-      stripe_subscription_id: invoice.subscription as string,
-      stripe_customer_id: invoice.customer as string,
-      amount: invoice.amount_paid,
-      currency: invoice.currency,
-      status: 'succeeded',
-      created_at: new Date().toISOString()
+    .rpc('update_subscription_cache', {
+      p_stripe_subscription_id: subscription.id,
+      p_stripe_customer_id: subscription.customer as string,
+      p_status: 'canceled',
+      p_current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+      p_current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+      p_cancel_at_period_end: true,
+      p_stripe_updated_at: new Date().toISOString()
     });
 
   if (error) {
-    console.error('Error recording payment:', error);
+    console.error('Error updating subscription cache to canceled:', error);
   }
 }
 
-async function handlePaymentFailed(invoice: Stripe.Invoice, supabase: any) {
-  console.log("Payment failed for subscription:", invoice.subscription);
-
-  // Record failed payment
-  const { error } = await supabase
-    .from('payments')
-    .insert({
-      stripe_invoice_id: invoice.id,
-      stripe_subscription_id: invoice.subscription as string,
-      stripe_customer_id: invoice.customer as string,
-      amount: invoice.amount_due,
-      currency: invoice.currency,
-      status: 'failed',
-      created_at: new Date().toISOString()
-    });
-
-  if (error) {
-    console.error('Error recording failed payment:', error);
-  }
-}
+// Payment tracking functions removed - Stripe API provides all payment data
+// No need to store payment details locally, only subscription status matters
 
 async function sendToZapier(customerData: any) {
   try {
