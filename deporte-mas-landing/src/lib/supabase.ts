@@ -52,30 +52,88 @@ export const auth = {
   }
 };
 
-// User functions
+// User functions - Now using edge functions for better security
 export const users = {
-  getProfile: async (userId: string): Promise<User | null> => {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single();
+  getProfile: async (): Promise<User | null> => {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) {
+        throw new Error('User not authenticated');
+      }
 
-    if (error) {
+      const { data, error } = await supabase.functions.invoke('user-management', {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${session.session.access_token}`,
+        },
+      });
+
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        return null;
+      }
+
+      return data.success ? data.data : null;
+    } catch (error) {
       console.error('Error fetching user profile:', error);
       return null;
     }
-
-    return data;
   },
 
-  updateProfile: async (userId: string, updates: Partial<User>) => {
-    return await supabase
-      .from('users')
-      .update(updates)
-      .eq('id', userId);
+  updateProfile: async (updates: { name?: string; phone?: string; country?: string }) => {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) {
+        throw new Error('User not authenticated');
+      }
+
+      const { data, error } = await supabase.functions.invoke('user-management', {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${session.session.access_token}`,
+        },
+        body: updates,
+      });
+
+      if (error) {
+        console.error('Error updating user profile:', error);
+        return { data: null, error };
+      }
+
+      return { data: data.data, error: null };
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+      return { data: null, error };
+    }
   },
 
+  deleteAccount: async () => {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) {
+        throw new Error('User not authenticated');
+      }
+
+      const { data, error } = await supabase.functions.invoke('user-management', {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${session.session.access_token}`,
+        },
+      });
+
+      if (error) {
+        console.error('Error deleting user account:', error);
+        return { success: false, error };
+      }
+
+      return { success: true, error: null };
+    } catch (error) {
+      console.error('Error deleting user account:', error);
+      return { success: false, error };
+    }
+  },
+
+  // Legacy function for backward compatibility
   getByEmail: async (email: string): Promise<User | null> => {
     const { data, error } = await supabase
       .from('users')
