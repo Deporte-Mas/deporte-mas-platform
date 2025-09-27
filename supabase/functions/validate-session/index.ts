@@ -20,19 +20,15 @@ interface SessionResponse {
     email: string;
     name?: string;
     avatar_url?: string;
-    subscription_status: string;
-    subscription_tier: string;
-    subscription_ends_at?: string;
+    is_active_subscriber: boolean;
+    subscription_started_at?: string;
     wallet_address?: string;
     total_points_earned: number;
     team_badges: string[];
   };
   subscription: {
-    status: string;
-    tier: string;
-    plan_type: string;
-    current_period_end?: string;
-    cancel_at_period_end?: boolean;
+    is_active: boolean;
+    started_at?: string;
   };
   wallet?: {
     address: string;
@@ -54,7 +50,7 @@ serve(async (req) => {
     const { user, supabase } = context;
 
     try {
-      // Get detailed user profile with subscription info
+      // Get user profile and subscription status
       const { data: userProfile, error: userError } = await supabase
         .from('users')
         .select(`
@@ -62,10 +58,6 @@ serve(async (req) => {
           email,
           name,
           avatar_url,
-          subscription_status,
-          subscription_tier,
-          plan_type,
-          subscription_ends_at,
           wallet_address,
           wallet_provider,
           wallet_created_at,
@@ -86,27 +78,16 @@ serve(async (req) => {
         .update({ last_active_at: new Date().toISOString() })
         .eq('id', user.id);
 
-      // Get subscription details
-      const { data: subscription } = await supabase
-        .from('subscriptions')
-        .select('*')
-        .eq('stripe_customer_id', userProfile.stripe_customer_id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+      // Get subscription status from cache
+      const { data: subscriptionStatus } = await supabase
+        .rpc('get_user_subscription_status', { user_id: user.id });
 
-      // Determine access permissions based on Stripe subscription (primary control)
-      const hasAccess = userProfile.subscription_status === 'active' &&
-                       (!userProfile.subscription_ends_at ||
-                        new Date(userProfile.subscription_ends_at) > new Date());
+      const hasAccess = subscriptionStatus?.[0]?.is_active || false;
 
       // Generate permissions array
       const permissions: string[] = [];
       if (hasAccess) {
-        permissions.push('platform_access', 'chat', 'polls', 'giveaways');
-        if (userProfile.subscription_tier === 'premium') {
-          permissions.push('premium_content', 'exclusive_chat');
-        }
+        permissions.push('platform_access', 'chat', 'polls', 'giveaways', 'premium_content');
       }
 
       // Admin permissions (would be set in user metadata)
@@ -132,19 +113,15 @@ serve(async (req) => {
           email: userProfile.email,
           name: userProfile.name,
           avatar_url: userProfile.avatar_url,
-          subscription_status: userProfile.subscription_status,
-          subscription_tier: userProfile.subscription_tier,
-          subscription_ends_at: userProfile.subscription_ends_at,
+          is_active_subscriber: hasAccess,
+          subscription_started_at: subscriptionStatus?.[0]?.stripe_customer_id ? subscriptionStatus[0].current_period_end : null,
           wallet_address: userProfile.wallet_address,
           total_points_earned: userProfile.total_points_earned || 0,
           team_badges: userProfile.team_badges || []
         },
         subscription: {
-          status: userProfile.subscription_status,
-          tier: userProfile.subscription_tier,
-          plan_type: userProfile.plan_type || 'monthly',
-          current_period_end: userProfile.subscription_ends_at,
-          cancel_at_period_end: subscription?.cancel_at_period_end || false
+          is_active: hasAccess,
+          started_at: subscriptionStatus?.[0]?.current_period_end || null
         },
         wallet: walletInfo,
         permissions,
@@ -153,7 +130,7 @@ serve(async (req) => {
           web3_enabled: !!userProfile.wallet_address,
           can_chat: hasAccess,
           can_enter_giveaways: hasAccess,
-          can_access_premium: hasAccess && userProfile.subscription_tier === 'premium'
+          can_access_premium: hasAccess
         }
       };
 

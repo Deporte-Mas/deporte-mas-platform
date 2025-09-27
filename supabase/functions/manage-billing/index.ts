@@ -43,7 +43,7 @@ serve(async (req) => {
       // Get user's Stripe customer ID
       const { data: userProfile, error } = await supabase
         .from('users')
-        .select('stripe_customer_id, subscription_status')
+        .select('stripe_customer_id')
         .eq('id', user.id)
         .single();
 

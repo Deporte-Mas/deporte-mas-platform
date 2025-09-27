@@ -159,16 +159,14 @@ export async function requireActiveSubscription(
   userId: string
 ): Promise<boolean> {
   const { data, error } = await supabase
-    .from('users')
-    .select('subscription_status')
-    .eq('id', userId)
-    .single();
+    .rpc('has_active_subscription', { user_id: userId });
 
-  if (error || !data) {
+  if (error) {
+    console.error('Error checking subscription status:', error);
     throw new Error('Unable to verify subscription status');
   }
 
-  return data.subscription_status === 'active';
+  return data === true;
 }
 
 /**

@@ -693,13 +693,15 @@ CREATE TRIGGER update_user_progress_updated_at BEFORE UPDATE ON user_progress
 -- ============================================================================
 
 -- Function to automatically create user profile on auth signup
+-- Updated to extract name from auth metadata
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.users (id, email, created_at, updated_at)
+  INSERT INTO public.users (id, email, name, created_at, updated_at)
   VALUES (
     NEW.id,
     NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'name', ''),
     NEW.created_at,
     NEW.updated_at
   );

@@ -108,7 +108,7 @@ class AuthFlowTester {
       }
 
       console.log(`   Profile retrieved: ${result.data.email}`);
-      console.log(`   Subscription status: ${result.data.subscription_status}`);
+      console.log(`   Active subscriber: ${result.data.is_active_subscriber}`);
     });
   }
 

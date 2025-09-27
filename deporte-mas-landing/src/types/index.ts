@@ -6,26 +6,16 @@ export interface User {
   phone?: string;
   country?: string;
   stripe_customer_id?: string;
-  stripe_subscription_id?: string;
-  subscription_status: 'active' | 'inactive' | 'cancelled' | 'past_due';
-  plan_type: 'monthly' | 'annual';
+  is_active_subscriber: boolean;
+  subscription_started_at?: string;
   created_at: string;
   updated_at: string;
 }
 
-// Subscription types
-export interface Subscription {
-  id: string;
-  stripe_subscription_id: string;
-  stripe_customer_id: string;
-  user_id: string;
-  status: 'active' | 'inactive' | 'cancelled' | 'past_due' | 'unpaid';
-  plan_type: 'monthly' | 'annual';
-  current_period_start: string;
-  current_period_end: string;
-  cancelled_at?: string;
-  created_at: string;
-  updated_at: string;
+// Simplified subscription status (detailed data comes from Stripe API when needed)
+export interface SubscriptionStatus {
+  is_active: boolean;
+  started_at?: string;
 }
 
 // Checkout types

@@ -9,6 +9,7 @@ import {
   withAuth,
   createSuccessResponse,
   createErrorResponse,
+  requireActiveSubscription,
   type AuthContext
 } from "../_shared/auth.ts";
 import { ValidationService, ChatMessageSchema } from "../_shared/validation.ts";
@@ -58,26 +59,25 @@ serve(async (req) => {
       // Check if user has access (active subscription)
       const { data: userProfile } = await supabase
         .from('users')
-        .select('subscription_status, subscription_ends_at, name, avatar_url, team_badges')
+        .select('name, avatar_url, team_badges')
         .eq('id', user.id)
         .single();
 
-      if (!userProfile || userProfile.subscription_status !== 'active') {
+      if (!userProfile) {
+        return createErrorResponse(
+          'User profile not found',
+          404,
+          'USER_NOT_FOUND'
+        );
+      }
+
+      // Check subscription status using cache
+      const hasAccess = await requireActiveSubscription(supabase, user.id);
+      if (!hasAccess) {
         return createErrorResponse(
           'Active subscription required to chat',
           403,
           'SUBSCRIPTION_REQUIRED'
-        );
-      }
-
-      const hasAccess = !userProfile.subscription_ends_at ||
-                       new Date(userProfile.subscription_ends_at) > new Date();
-
-      if (!hasAccess) {
-        return createErrorResponse(
-          'Subscription expired',
-          403,
-          'SUBSCRIPTION_EXPIRED'
         );
       }
 

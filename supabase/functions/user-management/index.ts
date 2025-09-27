@@ -14,8 +14,8 @@ interface UserProfile {
   name?: string;
   phone?: string;
   country?: string;
-  subscription_status: string;
-  plan_type: string;
+  is_active_subscriber: boolean;
+  subscription_started_at?: string;
   created_at: string;
   updated_at: string;
 }
@@ -57,16 +57,10 @@ async function handleGetProfile(supabase: any, userId: string) {
         name,
         phone,
         country,
-        subscription_status,
-        plan_type,
+        stripe_customer_id,
+        subscription_started_at,
         created_at,
-        updated_at,
-        subscriptions!inner(
-          status,
-          current_period_start,
-          current_period_end,
-          plan_type
-        )
+        updated_at
       `)
       .eq('id', userId)
       .single();
@@ -76,13 +70,23 @@ async function handleGetProfile(supabase: any, userId: string) {
     }
 
     if (!data) {
-      return new Response(JSON.stringify({ error: 'User profile not found' }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return createErrorResponse('User profile not found', 404, 'USER_NOT_FOUND');
     }
 
-    return createSuccessResponse(data, 'Profile retrieved successfully');
+    // Get subscription status from cache
+    const { data: subscriptionStatus } = await supabase
+      .rpc('get_user_subscription_status', { user_id: userId });
+
+    const isActiveSubscriber = subscriptionStatus?.[0]?.is_active || false;
+
+    const profileData = {
+      ...data,
+      is_active_subscriber: isActiveSubscriber,
+      subscription_status: subscriptionStatus?.[0]?.subscription_status || null,
+      current_period_end: subscriptionStatus?.[0]?.current_period_end || null
+    };
+
+    return createSuccessResponse(profileData, 'Profile retrieved successfully');
 
   } catch (error) {
     console.error('Get profile error:', error);

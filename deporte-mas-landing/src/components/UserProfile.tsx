@@ -39,36 +39,14 @@ export const UserProfile: React.FC = () => {
       .slice(0, 2);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-100 text-green-800';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800';
-      case 'past_due':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+  const getStatusColor = (isActive: boolean) => {
+    return isActive
+      ? 'bg-green-100 text-green-800'
+      : 'bg-gray-100 text-gray-800';
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'Activa';
-      case 'cancelled':
-        return 'Cancelada';
-      case 'past_due':
-        return 'Pago Pendiente';
-      case 'inactive':
-        return 'Inactiva';
-      default:
-        return 'Desconocido';
-    }
-  };
-
-  const getPlanText = (planType: string) => {
-    return planType === 'annual' ? 'Plan Anual' : 'Plan Mensual';
+  const getStatusText = (isActive: boolean) => {
+    return isActive ? 'Activa' : 'Inactiva';
   };
 
   return (
@@ -115,17 +93,19 @@ export const UserProfile: React.FC = () => {
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">Estado:</span>
-            <Badge className={getStatusColor(user.subscription_status)}>
-              {getStatusText(user.subscription_status)}
+            <Badge className={getStatusColor(user.is_active_subscriber)}>
+              {getStatusText(user.is_active_subscriber)}
             </Badge>
           </div>
 
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Plan:</span>
-            <span className="text-sm text-gray-600">
-              {getPlanText(user.plan_type)}
-            </span>
-          </div>
+          {user.subscription_started_at && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Suscripción desde:</span>
+              <span className="text-sm text-gray-600">
+                {new Date(user.subscription_started_at).toLocaleDateString('es-ES')}
+              </span>
+            </div>
+          )}
 
           {user.stripe_customer_id && (
             <div className="flex items-center justify-between">
@@ -159,14 +139,14 @@ export const UserProfile: React.FC = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {user.subscription_status === 'active' && (
+          {user.is_active_subscriber && (
             <Button variant="outline" className="w-full justify-start">
               <CreditCard className="w-4 h-4 mr-2" />
               Gestionar Suscripción
             </Button>
           )}
 
-          {user.subscription_status === 'inactive' && (
+          {!user.is_active_subscriber && (
             <Button className="w-full justify-start">
               <CreditCard className="w-4 h-4 mr-2" />
               Activar Suscripción

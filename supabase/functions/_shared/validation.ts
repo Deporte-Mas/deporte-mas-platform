@@ -233,11 +233,10 @@ export const PollVoteSchema = z.object({
 export const AdminUserUpdateSchema = z.object({
   user_id: z.string().uuid(),
   updates: z.object({
-    subscription_status: z.enum(['active', 'canceled', 'past_due', 'trialing']).optional(),
+    is_active_subscriber: z.boolean().optional(),
     points_adjustment: z.number().int().optional(),
     team_badges: z.array(z.string().uuid()).optional(),
-    banned: z.boolean().optional(),
-    subscription_tier: z.enum(['free', 'premium']).optional()
+    banned: z.boolean().optional()
   }),
   reason: z.string().min(1).max(500).trim()
 });
@@ -251,12 +250,11 @@ export const AdminContentModerationSchema = z.object({
 
 export const AdminUserListSchema = z.object({
   search: z.string().max(100).trim().optional(),
-  subscription_status: z.enum(['all', 'active', 'canceled', 'past_due']).default('all'),
-  subscription_tier: z.enum(['all', 'free', 'premium']).default('all'),
+  is_active_subscriber: z.boolean().optional(),
   banned: z.boolean().optional(),
   limit: z.number().int().min(1).max(100).default(50),
   offset: z.number().int().min(0).default(0),
-  sort: z.enum(['created_at', 'last_active', 'subscription_started']).default('created_at'),
+  sort: z.enum(['created_at', 'last_active', 'subscription_started_at']).default('created_at'),
   order: z.enum(['asc', 'desc']).default('desc')
 });
 

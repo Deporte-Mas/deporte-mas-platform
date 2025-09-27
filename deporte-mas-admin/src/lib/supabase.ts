@@ -1,17 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
-import type { User, Subscription, Payment } from '@/types';
+import type { User } from '@/types';
 
 // Additional admin types
 export interface AdminStats {
   totalUsers: number;
   activeSubscriptions: number;
-  monthlyRevenue: number;
-  cancelledSubscriptions: number;
+  // Note: For revenue data, query Stripe API directly
 }
 
 export interface UserWithSubscription extends User {
-  subscription?: Subscription;
-  payments?: Payment[];
+  // Simplified - detailed subscription data comes from Stripe API when needed
 }
 
 // Environment variables validation
@@ -105,69 +103,11 @@ export const users = {
   }
 };
 
-// Subscription functions
-export const subscriptions = {
-  getByUserId: async (userId: string): Promise<Subscription | null> => {
-    const { data, error } = await supabase
-      .from('subscriptions')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
+// Note: Detailed subscription data now comes from Stripe API
+// Local database only tracks simple subscription status via users.is_active_subscriber
 
-    if (error) {
-      console.error('Error fetching subscription:', error);
-      return null;
-    }
-
-    return data;
-  },
-
-  getAll: async (): Promise<Subscription[]> => {
-    const { data, error } = await supabase
-      .from('subscriptions')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching subscriptions:', error);
-      return [];
-    }
-
-    return data || [];
-  }
-};
-
-// Payment functions
-export const payments = {
-  getByUserId: async (userId: string): Promise<Payment[]> => {
-    const { data, error } = await supabase
-      .from('payments')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching payments:', error);
-      return [];
-    }
-
-    return data || [];
-  },
-
-  getAll: async (): Promise<Payment[]> => {
-    const { data, error } = await supabase
-      .from('payments')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching all payments:', error);
-      return [];
-    }
-
-    return data || [];
-  }
-};
+// Note: Payment data now comes from Stripe API
+// No local payment tracking needed
 
 // Admin functions
 export const admin = {
@@ -178,44 +118,23 @@ export const admin = {
         .from('users')
         .select('*', { count: 'exact', head: true });
 
-      // Get active subscriptions
+      // Get active subscriptions from cache
       const { count: activeSubscriptions } = await supabase
-        .from('subscriptions')
+        .from('subscription_cache')
         .select('*', { count: 'exact', head: true })
-        .eq('status', 'active');
-
-      // Get cancelled subscriptions
-      const { count: cancelledSubscriptions } = await supabase
-        .from('subscriptions')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'cancelled');
-
-      // Get monthly revenue (this month's successful payments)
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
-
-      const { data: monthlyPayments } = await supabase
-        .from('payments')
-        .select('amount')
-        .eq('status', 'succeeded')
-        .gte('created_at', startOfMonth.toISOString());
-
-      const monthlyRevenue = monthlyPayments?.reduce((total, payment) => total + payment.amount, 0) || 0;
+        .in('status', ['active', 'trialing'])
+        .gt('current_period_end', new Date().toISOString());
 
       return {
         totalUsers: totalUsers || 0,
         activeSubscriptions: activeSubscriptions || 0,
-        cancelledSubscriptions: cancelledSubscriptions || 0,
-        monthlyRevenue: monthlyRevenue / 100, // Convert cents to dollars
+        // Note: For revenue data, integrate with Stripe API
       };
     } catch (error) {
       console.error('Error fetching admin stats:', error);
       return {
         totalUsers: 0,
         activeSubscriptions: 0,
-        cancelledSubscriptions: 0,
-        monthlyRevenue: 0,
       };
     }
   },
@@ -225,8 +144,11 @@ export const admin = {
       .from('users')
       .select(`
         *,
-        subscriptions(*),
-        payments(*)
+        subscription_cache (
+          status,
+          current_period_end,
+          stripe_customer_id
+        )
       `)
       .order('created_at', { ascending: false });
 
@@ -235,7 +157,14 @@ export const admin = {
       return [];
     }
 
-    return data || [];
+    // Transform data to include computed subscription fields
+    return data?.map(user => ({
+      ...user,
+      is_active_subscriber: user.subscription_cache?.[0] &&
+                           ['active', 'trialing'].includes(user.subscription_cache[0].status) &&
+                           new Date(user.subscription_cache[0].current_period_end) > new Date(),
+      subscription_started_at: user.subscription_cache?.[0] ? user.created_at : null
+    })) || [];
   }
 };
 

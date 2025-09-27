@@ -9,6 +9,7 @@ import {
   withAuth,
   createSuccessResponse,
   createErrorResponse,
+  requireActiveSubscription,
   type AuthContext
 } from "../_shared/auth.ts";
 import { Web3IntegrationService } from "../_shared/web3.ts";
@@ -48,7 +49,7 @@ serve(async (req) => {
       // Check if user already has a wallet
       const { data: existingUser } = await supabase
         .from('users')
-        .select('wallet_address, subscription_status, subscription_tier')
+        .select('wallet_address')
         .eq('id', user.id)
         .single();
 
@@ -74,9 +75,11 @@ serve(async (req) => {
         );
       }
 
-      // If user has active subscription, mint membership NFT
+      // Check if user has active subscription and mint membership NFT if so
+      const hasActiveSubscription = await requireActiveSubscription(supabase, user.id);
       let nftResult = { minted: false };
-      if (existingUser?.subscription_status === 'active') {
+
+      if (hasActiveSubscription) {
         try {
           await web3Service.handleSubscriptionActivated(user.id);
           nftResult = { minted: true };
@@ -94,7 +97,7 @@ serve(async (req) => {
           created_at: walletInfo.created_at.toISOString()
         },
         membership_nft: nftResult,
-        message: existingUser?.subscription_status === 'active'
+        message: hasActiveSubscription
           ? 'Wallet created and membership NFT minted successfully'
           : 'Wallet created successfully. Membership NFT will be minted upon subscription activation.'
       };
