@@ -1,9 +1,27 @@
 // SPDX-License-Identifier: MIT
 // Compatible with OpenZeppelin Contracts for Cairo ^2.0.0
+use starknet::ContractAddress;
 const MINTER_ROLE: felt252 = selector!("MINTER_ROLE");
 
+// ===============================
+// DeportesMasPoints Interface
+// ===============================
+
+#[starknet::interface]
+pub trait IDeportesMasPoints<TContractState> {
+    fn mint(ref self: TContractState, recipient: ContractAddress, amount: u256);
+    fn burn(ref self: TContractState, value: u256);
+    fn batch_mint(ref self: TContractState, recipients: Array<ContractAddress>, amounts: Array<u256>);
+    fn get_yield_engine(self: @TContractState) -> ContractAddress;
+    fn get_engagement_rewards(self: @TContractState) -> ContractAddress;
+    fn get_giveaway_manager(self: @TContractState) -> ContractAddress;
+    fn set_yield_engine(ref self: TContractState, yield_engine: ContractAddress);
+    fn set_engagement_rewards(ref self: TContractState, engagement_rewards: ContractAddress);
+    fn set_giveaway_manager(ref self: TContractState, giveaway_manager: ContractAddress);
+}
+
 #[starknet::contract]
-mod DeportesMasPoints {
+pub mod DeportesMasPoints {
     use openzeppelin::access::accesscontrol::{AccessControlComponent, DEFAULT_ADMIN_ROLE};
     use openzeppelin::introspection::src5::SRC5Component;
     use openzeppelin::token::erc20::{ERC20Component, ERC20HooksEmptyImpl};
