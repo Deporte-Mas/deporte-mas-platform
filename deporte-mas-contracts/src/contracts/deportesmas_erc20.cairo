@@ -18,6 +18,8 @@ mod DeportesMasPoints {
     // External
     #[abi(embed_v0)]
     impl AccessControlMixinImpl = AccessControlComponent::AccessControlMixinImpl<ContractState>;
+    #[abi(embed_v0)]
+    impl ERC20MixinImpl = ERC20Component::ERC20MixinImpl<ContractState>;
 
     // Internal
     impl ERC20InternalImpl = ERC20Component::InternalImpl<ContractState>;
@@ -91,18 +93,6 @@ mod DeportesMasPoints {
                 
                 i += 1;
             };
-        }
-
-        #[external(v0)]
-        fn increase_allowance(ref self: ContractState, spender: ContractAddress, added_value: u256) -> bool {
-            // Non-transferable tokens cannot be approved for transfer
-            panic!("DeportesMasPoints: Approval not allowed - non-transferable token");
-        }
-
-        #[external(v0)]
-        fn decrease_allowance(ref self: ContractState, spender: ContractAddress, subtracted_value: u256) -> bool {
-            // Non-transferable tokens cannot be approved for transfer
-            panic!("DeportesMasPoints: Approval not allowed - non-transferable token");
         }
 
         fn get_yield_engine(self: @ContractState) -> ContractAddress {
