@@ -1,7 +1,5 @@
-// SPDX-License-Identifier: MIT
-// Compatible with OpenZeppelin Contracts for Cairo ^2.0.0
-
 use starknet::ContractAddress;
+
 // ===============================
 // Yield Engine Interface
 // ===============================
