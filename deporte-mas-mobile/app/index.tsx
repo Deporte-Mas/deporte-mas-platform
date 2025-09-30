@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
+import { router } from "expo-router";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -16,8 +17,7 @@ export default function Index() {
   const [currentPage, setCurrentPage] = useState(0);
 
   const handleLogin = () => {
-    // TODO: Navigate to login screen
-    console.log("Navigate to login");
+    router.push("/login");
   };
 
   const handleRegister = () => {
