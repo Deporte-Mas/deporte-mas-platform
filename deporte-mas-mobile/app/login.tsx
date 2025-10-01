@@ -20,6 +20,8 @@ export default function Login() {
   const handleLogin = () => {
     // TODO: Implement login logic
     console.log("Login attempt with:", { email, password });
+    // Redirect to home after login
+    router.push("/home");
   };
 
   const handleForgotPassword = () => {
