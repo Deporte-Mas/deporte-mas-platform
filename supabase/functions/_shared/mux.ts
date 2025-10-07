@@ -346,7 +346,7 @@ export class VideoProcessingService {
         new_asset_settings: {
           playback_policy: ['public'],
           video_quality: 'plus',
-          test: Deno.env.get('NODE_ENV') !== 'production'
+          test: Deno.env.get('VITE_DEV_MODE') === 'true'
         }
       });
 

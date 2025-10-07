@@ -79,16 +79,9 @@ serve(async (req) => {
       });
     }
 
-    // Environment configuration - check multiple ways to determine mode
-    const devModeEnv = Deno.env.get('VITE_DEV_MODE');
-    const nodeEnv = Deno.env.get('NODE_ENV');
-    const supabaseEnv = Deno.env.get('SUPABASE_ENVIRONMENT');
-
-    // Determine if we're in development mode
-    const devMode = devModeEnv === 'true' ||
-                   nodeEnv === 'development' ||
-                   supabaseEnv === 'development' ||
-                   (!devModeEnv && !nodeEnv && !supabaseEnv); // Default to dev if not specified
+    // Environment configuration - check VITE_DEV_MODE
+    // This should be set in Supabase Dashboard secrets to match frontend environment
+    const devMode = Deno.env.get('VITE_DEV_MODE') === 'true';
 
     console.log(`Webhook running in ${devMode ? 'development' : 'production'} mode`);
 
