@@ -9,7 +9,10 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "validate-env": "node scripts/validate-env.js",
+    "test:stripe": "node scripts/test-stripe-config.js",
+    "deploy:preview": "npm run build && npx serve dist"
   },
   "dependencies": {
     "@stripe/stripe-js": "^4.8.0",
