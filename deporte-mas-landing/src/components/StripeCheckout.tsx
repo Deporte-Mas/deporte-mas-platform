@@ -52,9 +52,9 @@ export const StripeCheckout: React.FC<Props> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="relative w-full max-w-md bg-white rounded-lg shadow-xl overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b">
+      <div className="relative w-full max-w-md max-h-[90vh] bg-white rounded-lg shadow-xl flex flex-col">
+        {/* Header - Fixed */}
+        <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
           <h3 className="text-lg font-semibold text-gray-900">
             Suscripción Deporte+ Club
           </h3>
@@ -67,8 +67,8 @@ export const StripeCheckout: React.FC<Props> = ({
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-4">
+        {/* Content - Scrollable */}
+        <div className="p-4 overflow-y-auto flex-1">
           {isLoading && (
             <LoadingState planType={planType} />
           )}
