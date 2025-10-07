@@ -111,9 +111,6 @@ serve(async (req) => {
       custom_text: {
         submit: { message: 'Pago procesado de forma segura por Stripe' }
       },
-
-      // Customer portal configuration
-      customer_creation: 'always',
     });
 
     // Optional: Send InitiateCheckout event to Meta CAPI
