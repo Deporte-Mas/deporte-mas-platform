@@ -22,7 +22,7 @@ port = 5432
 shadow_port = 54320
 # The database major version to use. This has to be the same as your remote database's. Run `SHOW
 # server_version_num;` on the remote database to check.
-major_version = 15
+major_version = 17
 
 [db.pooler]
 enabled = false
@@ -140,15 +140,6 @@ port = 54327
 vector_port = 54328
 # Configure one of the supported backends: `postgres`, `bigquery`.
 backend = "postgres"
-
-# Edge Functions configuration
-[functions]
-# Enable Edge Functions for local development
-enabled = true
-# Serve functions from the functions directory
-verify_jwt = false
-# Import map for dependencies
-import_map = "./supabase/functions/import_map.json"
 
 # Experimental features may be deprecated any time
 [experimental]

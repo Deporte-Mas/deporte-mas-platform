@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS subscription_cache (
   stripe_customer_id TEXT NOT NULL,
 
   -- Essential cached fields for access control
-  status TEXT NOT NULL CHECK (status IN ('active', 'trialing', 'past_due', 'canceled', 'incomplete', 'incomplete_expired', 'unpaid')),
+  status TEXT NOT NULL CHECK (status IN ('active', 'trialing', 'past_due', 'canceled', 'incomplete', 'incomplete_expired', 'unpaid', 'paused')),
   current_period_start TIMESTAMPTZ NOT NULL,
   current_period_end TIMESTAMPTZ NOT NULL,
   cancel_at_period_end BOOLEAN DEFAULT false,
@@ -41,6 +41,9 @@ CREATE TABLE IF NOT EXISTS stripe_events (
   processed BOOLEAN DEFAULT false,
   processing_error TEXT,
   data JSONB NOT NULL,
+  retry_count INTEGER DEFAULT 0,
+  last_retry_at TIMESTAMPTZ,
+  failed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   processed_at TIMESTAMPTZ
 );
@@ -49,10 +52,10 @@ CREATE TABLE IF NOT EXISTS stripe_events (
 -- 3. MIGRATE EXISTING DATA
 -- ============================================================================
 
--- Migrate from is_active_subscriber (if it exists)
+-- Migrate from subscription_status (defined in previous migration)
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'is_active_subscriber') THEN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'subscription_status') THEN
     -- For users with stripe_customer_id but no active subscription cache
     INSERT INTO subscription_cache (
       user_id,
@@ -68,12 +71,13 @@ BEGIN
       COALESCE(u.stripe_subscription_id, 'migration_' || u.id), -- Safe migration ID
       u.stripe_customer_id,
       CASE
-        WHEN u.is_active_subscriber = true THEN 'active'
+        WHEN u.subscription_status = 'active' THEN 'active'
+        WHEN u.subscription_status = 'trialing' THEN 'trialing'
         ELSE 'canceled'
       END,
       COALESCE(u.subscription_started_at, u.created_at),
       CASE
-        WHEN u.is_active_subscriber = true THEN NOW() + INTERVAL '30 days' -- Default 30 days
+        WHEN u.subscription_status IN ('active', 'trialing') THEN COALESCE(u.subscription_ends_at, NOW() + INTERVAL '30 days')
         ELSE NOW() - INTERVAL '1 day'
       END,
       NOW()
@@ -92,10 +96,12 @@ END $$;
 
 -- Update video access policy to use subscription cache
 DROP POLICY IF EXISTS "Videos require subscription access" ON videos;
+DROP POLICY IF EXISTS "Public read access" ON videos;
 CREATE POLICY "Videos require subscription access" ON videos
   FOR SELECT USING (
     CASE
       WHEN is_public = true THEN true
+      WHEN requires_subscription = false THEN true
       WHEN requires_subscription = true THEN
         EXISTS (
           SELECT 1 FROM subscription_cache
@@ -109,10 +115,12 @@ CREATE POLICY "Videos require subscription access" ON videos
 
 -- Update course access policy
 DROP POLICY IF EXISTS "Courses require subscription access" ON courses;
+DROP POLICY IF EXISTS "Public read access" ON courses;
 CREATE POLICY "Courses require subscription access" ON courses
   FOR SELECT USING (
     CASE
-      WHEN is_public = true THEN true
+      WHEN is_published = false THEN false
+      WHEN requires_subscription = false THEN true
       WHEN requires_subscription = true THEN
         EXISTS (
           SELECT 1 FROM subscription_cache
@@ -128,7 +136,7 @@ CREATE POLICY "Courses require subscription access" ON courses
 DROP POLICY IF EXISTS "Chat requires active subscription" ON chat_messages;
 DROP POLICY IF EXISTS "Chat requires active Stripe subscription" ON chat_messages;
 CREATE POLICY "Chat requires active subscription" ON chat_messages
-  FOR INSERT USING (
+  FOR INSERT WITH CHECK (
     EXISTS (
       SELECT 1 FROM subscription_cache
       WHERE user_id = auth.uid()
@@ -141,7 +149,7 @@ CREATE POLICY "Chat requires active subscription" ON chat_messages
 DROP POLICY IF EXISTS "Giveaways require active subscription" ON giveaway_entries;
 DROP POLICY IF EXISTS "Giveaways require active Stripe subscription" ON giveaway_entries;
 CREATE POLICY "Giveaways require active subscription" ON giveaway_entries
-  FOR INSERT USING (
+  FOR INSERT WITH CHECK (
     EXISTS (
       SELECT 1 FROM subscription_cache
       WHERE user_id = auth.uid()
@@ -154,32 +162,36 @@ CREATE POLICY "Giveaways require active subscription" ON giveaway_entries
 -- 5. CREATE OPTIMIZED INDEXES
 -- ============================================================================
 
--- Index for fast access control checks
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_subscription_cache_user_active
-ON subscription_cache(user_id)
-WHERE status IN ('active', 'trialing') AND current_period_end > NOW();
+-- Index for fast access control checks (without NOW() as it's not immutable)
+CREATE INDEX IF NOT EXISTS idx_subscription_cache_user_active
+ON subscription_cache(user_id, current_period_end)
+WHERE status IN ('active', 'trialing');
 
 -- Index for Stripe integration
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_subscription_cache_stripe_subscription
+CREATE INDEX IF NOT EXISTS idx_subscription_cache_stripe_subscription
 ON subscription_cache(stripe_subscription_id);
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_subscription_cache_stripe_customer
+CREATE INDEX IF NOT EXISTS idx_subscription_cache_stripe_customer
 ON subscription_cache(stripe_customer_id);
 
 -- Index for webhook processing
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_stripe_events_unprocessed
+CREATE INDEX IF NOT EXISTS idx_stripe_events_unprocessed
 ON stripe_events(created_at)
 WHERE processed = false;
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_stripe_events_type
+CREATE INDEX IF NOT EXISTS idx_stripe_events_type
 ON stripe_events(type, created_at);
 
 -- ============================================================================
 -- 6. CREATE HELPER FUNCTIONS
 -- ============================================================================
 
+-- Drop old function signature before creating new one (return type changed)
+DROP FUNCTION IF EXISTS get_user_subscription_status(UUID);
+DROP FUNCTION IF EXISTS get_user_subscription_status();
+
 -- Function to get user subscription status (simplified)
-CREATE OR REPLACE FUNCTION get_user_subscription_status(user_id UUID DEFAULT auth.uid())
+CREATE OR REPLACE FUNCTION get_user_subscription_status(p_user_id UUID DEFAULT auth.uid())
 RETURNS TABLE (
   user_id UUID,
   stripe_customer_id TEXT,
@@ -196,12 +208,12 @@ BEGIN
     sc.current_period_end,
     (sc.status IN ('active', 'trialing') AND sc.current_period_end > NOW()) as is_active
   FROM subscription_cache sc
-  WHERE sc.user_id = COALESCE(get_user_subscription_status.user_id, auth.uid());
+  WHERE sc.user_id = COALESCE(p_user_id, auth.uid());
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Function to check if user has active subscription (for Edge Functions)
-CREATE OR REPLACE FUNCTION has_active_subscription(user_id UUID DEFAULT auth.uid())
+CREATE OR REPLACE FUNCTION has_active_subscription(p_user_id UUID DEFAULT auth.uid())
 RETURNS BOOLEAN AS $$
 DECLARE
   is_active BOOLEAN := false;
@@ -209,11 +221,11 @@ BEGIN
   SELECT (status IN ('active', 'trialing') AND current_period_end > NOW())
   INTO is_active
   FROM subscription_cache
-  WHERE subscription_cache.user_id = has_active_subscription.user_id;
+  WHERE subscription_cache.user_id = p_user_id;
 
   RETURN COALESCE(is_active, false);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Function to update subscription cache (called by webhooks)
 CREATE OR REPLACE FUNCTION update_subscription_cache(
@@ -234,56 +246,55 @@ BEGIN
   FROM users
   WHERE stripe_customer_id = p_stripe_customer_id;
 
-  IF target_user_id IS NOT NULL THEN
-    -- Upsert subscription cache
-    INSERT INTO subscription_cache (
-      user_id,
-      stripe_subscription_id,
-      stripe_customer_id,
-      status,
-      current_period_start,
-      current_period_end,
-      cancel_at_period_end,
-      stripe_updated_at,
-      last_webhook_at
-    )
-    VALUES (
-      target_user_id,
-      p_stripe_subscription_id,
-      p_stripe_customer_id,
-      p_status,
-      p_current_period_start,
-      p_current_period_end,
-      p_cancel_at_period_end,
-      p_stripe_updated_at,
-      NOW()
-    )
-    ON CONFLICT (user_id)
-    DO UPDATE SET
-      stripe_subscription_id = EXCLUDED.stripe_subscription_id,
-      status = EXCLUDED.status,
-      current_period_start = EXCLUDED.current_period_start,
-      current_period_end = EXCLUDED.current_period_end,
-      cancel_at_period_end = EXCLUDED.cancel_at_period_end,
-      stripe_updated_at = EXCLUDED.stripe_updated_at,
-      last_webhook_at = EXCLUDED.last_webhook_at,
-      updated_at = NOW();
+  -- Fail loudly if user doesn't exist (prevents silent subscription failures)
+  IF target_user_id IS NULL THEN
+    RAISE WARNING 'User not found for stripe_customer_id: %. Subscription update skipped. User may need to create account.', p_stripe_customer_id;
+    RETURN;
   END IF;
+
+  -- Upsert subscription cache with race condition protection
+  INSERT INTO subscription_cache (
+    user_id,
+    stripe_subscription_id,
+    stripe_customer_id,
+    status,
+    current_period_start,
+    current_period_end,
+    cancel_at_period_end,
+    stripe_updated_at,
+    last_webhook_at
+  )
+  VALUES (
+    target_user_id,
+    p_stripe_subscription_id,
+    p_stripe_customer_id,
+    p_status,
+    p_current_period_start,
+    p_current_period_end,
+    p_cancel_at_period_end,
+    p_stripe_updated_at,
+    NOW()
+  )
+  ON CONFLICT (user_id)
+  DO UPDATE SET
+    stripe_subscription_id = EXCLUDED.stripe_subscription_id,
+    status = EXCLUDED.status,
+    current_period_start = EXCLUDED.current_period_start,
+    current_period_end = EXCLUDED.current_period_end,
+    cancel_at_period_end = EXCLUDED.cancel_at_period_end,
+    stripe_updated_at = EXCLUDED.stripe_updated_at,
+    last_webhook_at = EXCLUDED.last_webhook_at,
+    updated_at = NOW()
+  WHERE subscription_cache.stripe_updated_at <= EXCLUDED.stripe_updated_at;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- ============================================================================
 -- 7. CREATE TRIGGERS
 -- ============================================================================
 
--- Trigger to update updated_at timestamp
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
+-- Trigger to update updated_at timestamp (function already defined in previous migration)
+-- Using existing update_updated_at_column() function
 
 DROP TRIGGER IF EXISTS update_subscription_cache_updated_at ON subscription_cache;
 CREATE TRIGGER update_subscription_cache_updated_at
@@ -312,6 +323,10 @@ CREATE POLICY "Service role can manage stripe events" ON stripe_events
 -- ============================================================================
 -- 9. ANALYTICS VIEWS
 -- ============================================================================
+
+-- Drop old views before recreating with new schema
+DROP VIEW IF EXISTS user_engagement_summary;
+DROP VIEW IF EXISTS subscription_metrics;
 
 -- Subscription metrics view
 CREATE OR REPLACE VIEW subscription_metrics AS
@@ -385,6 +400,17 @@ DROP INDEX IF EXISTS idx_payments_user_id;
 DROP INDEX IF EXISTS idx_payments_status;
 DROP INDEX IF EXISTS idx_users_subscription_status;
 
+-- Revoke permissions before dropping tables
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'subscriptions') THEN
+    REVOKE ALL ON subscriptions FROM authenticated, anon;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'payments') THEN
+    REVOKE ALL ON payments FROM authenticated, anon;
+  END IF;
+END $$;
+
 -- Drop the complex tables (if they exist)
 DROP TABLE IF EXISTS subscriptions CASCADE;
 DROP TABLE IF EXISTS payments CASCADE;
@@ -401,11 +427,8 @@ GRANT SELECT ON public.user_engagement_summary TO authenticated;
 
 GRANT EXECUTE ON FUNCTION public.get_user_subscription_status TO authenticated;
 GRANT EXECUTE ON FUNCTION public.has_active_subscription TO authenticated;
-GRANT EXECUTE ON FUNCTION public.update_subscription_cache TO authenticated;
-
--- Remove permissions for dropped tables
-REVOKE ALL ON subscriptions FROM authenticated, anon;
-REVOKE ALL ON payments FROM authenticated, anon;
+-- update_subscription_cache should only be called by service role (webhooks)
+GRANT EXECUTE ON FUNCTION public.update_subscription_cache TO service_role;
 
 -- ============================================================================
 -- 12. VERIFICATION FUNCTION
