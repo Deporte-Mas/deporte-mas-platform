@@ -37,11 +37,16 @@ Repeat the same process in your live Stripe dashboard.
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key-here
 
-# Stripe Frontend Configuration
-VITE_STRIPE_PUBLISHABLE_KEY=pk_test_... # Use pk_live_... for production
+# Stripe Frontend Configuration (Dual Environment)
+# Test environment keys
+VITE_STRIPE_TEST_PUBLISHABLE_KEY=pk_test_...
+# Production environment keys
+VITE_STRIPE_PUBLISHABLE_KEY=pk_live_...
 
-# Development Mode
-VITE_DEV_MODE=true # Set to false for production
+# Development Mode Control
+# true = uses test keys and test products
+# false = uses live keys and live products
+VITE_DEV_MODE=true
 
 # Meta Pixel (optional)
 VITE_META_PIXEL_ID=your-pixel-id

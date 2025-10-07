@@ -2,6 +2,44 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.46.1";
 
+// Retry configuration
+interface RetryConfig {
+  maxRetries: number;
+  baseDelay: number;
+  maxDelay: number;
+}
+
+const RETRY_CONFIG: RetryConfig = {
+  maxRetries: 3,
+  baseDelay: 1000, // 1 second
+  maxDelay: 30000  // 30 seconds
+};
+
+// Retry utility function with exponential backoff
+async function retryWithBackoff<T>(
+  operation: () => Promise<T>,
+  config: RetryConfig = RETRY_CONFIG,
+  attempt: number = 1
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    if (attempt >= config.maxRetries) {
+      throw error;
+    }
+
+    const delay = Math.min(
+      config.baseDelay * Math.pow(2, attempt - 1),
+      config.maxDelay
+    );
+
+    console.log(`Retry attempt ${attempt} after ${delay}ms delay`);
+    await new Promise(resolve => setTimeout(resolve, delay));
+
+    return retryWithBackoff(operation, config, attempt + 1);
+  }
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, stripe-signature",
@@ -13,13 +51,33 @@ serve(async (req) => {
   }
 
   try {
-    // Verify webhook signature
+    // Enhanced webhook signature validation
     const signature = req.headers.get("stripe-signature");
     if (!signature) {
-      throw new Error("No Stripe signature found");
+      console.error("Webhook validation failed: No Stripe signature found");
+      return new Response(JSON.stringify({
+        error: "No Stripe signature found",
+        code: "MISSING_SIGNATURE"
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
     }
 
     const body = await req.text();
+
+    // Validate webhook secret is configured
+    const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
+    if (!webhookSecret) {
+      console.error("Webhook validation failed: STRIPE_WEBHOOK_SECRET not configured");
+      return new Response(JSON.stringify({
+        error: "Webhook secret not configured",
+        code: "MISSING_WEBHOOK_SECRET"
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500,
+      });
+    }
 
     // Environment configuration - check multiple ways to determine mode
     const devModeEnv = Deno.env.get('VITE_DEV_MODE');
@@ -38,13 +96,39 @@ serve(async (req) => {
       ? Deno.env.get('STRIPE_TEST_SECRET_KEY')
       : Deno.env.get('STRIPE_SECRET_KEY');
 
-    const stripe = new Stripe(stripeSecretKey!);
+    // Validate Stripe secret key is available
+    if (!stripeSecretKey) {
+      console.error(`Webhook validation failed: Missing Stripe ${devMode ? 'test' : 'live'} secret key`);
+      return new Response(JSON.stringify({
+        error: "Stripe secret key not configured",
+        code: "MISSING_STRIPE_KEY"
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500,
+      });
+    }
 
-    const event = await stripe.webhooks.constructEventAsync(
-      body,
-      signature,
-      Deno.env.get("STRIPE_WEBHOOK_SECRET")!
-    );
+    const stripe = new Stripe(stripeSecretKey);
+
+    // Enhanced webhook signature verification with detailed error handling
+    let event: Stripe.Event;
+    try {
+      event = await stripe.webhooks.constructEventAsync(
+        body,
+        signature,
+        webhookSecret
+      );
+    } catch (signatureError) {
+      console.error("Webhook signature verification failed:", signatureError);
+      return new Response(JSON.stringify({
+        error: "Webhook signature verification failed",
+        code: "INVALID_SIGNATURE",
+        details: signatureError.message
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
 
     console.log(`Processing ${event.type}`);
 
@@ -61,7 +145,9 @@ serve(async (req) => {
         id: event.id,
         type: event.type,
         data: event.data,
-        processed: false
+        processed: false,
+        retry_count: 0,
+        created_at: new Date().toISOString()
       }, {
         onConflict: 'id'
       });
@@ -70,8 +156,22 @@ serve(async (req) => {
       console.error('Error storing webhook event:', eventError);
     }
 
-    // Handle different event types
-    try {
+    // Check if event was already processed to prevent duplicate processing
+    const { data: existingEvent } = await supabase
+      .from('stripe_events')
+      .select('processed, retry_count')
+      .eq('id', event.id)
+      .single();
+
+    if (existingEvent?.processed) {
+      console.log(`Event ${event.id} already processed, skipping`);
+      return new Response(JSON.stringify({ received: true, already_processed: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Handle different event types with retry logic
+    const processEvent = async (): Promise<void> => {
       switch (event.type) {
         case "checkout.session.completed":
           await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session, supabase);
@@ -85,12 +185,29 @@ serve(async (req) => {
         case "customer.subscription.deleted":
           await handleSubscriptionDeleted(event.data.object as Stripe.Subscription, supabase);
           break;
-        // Note: Payment tracking removed - Stripe handles this via API
         default:
           console.log(`Unhandled event type: ${event.type}`);
+          return; // No processing needed for unhandled events
       }
+    };
 
-      // Mark event as processed
+    try {
+      // Process event with retry logic
+      await retryWithBackoff(async () => {
+        // Update retry count
+        const currentRetryCount = existingEvent?.retry_count || 0;
+        await supabase
+          .from('stripe_events')
+          .update({
+            retry_count: currentRetryCount + 1,
+            last_retry_at: new Date().toISOString()
+          })
+          .eq('id', event.id);
+
+        await processEvent();
+      });
+
+      // Mark event as processed successfully
       await supabase
         .from('stripe_events')
         .update({
@@ -100,18 +217,20 @@ serve(async (req) => {
         .eq('id', event.id);
 
     } catch (processError) {
-      console.error('Error processing webhook event:', processError);
+      console.error('Error processing webhook event after retries:', processError);
 
-      // Mark event as failed
+      // Mark event as failed after all retries exhausted
       await supabase
         .from('stripe_events')
         .update({
           processing_error: processError.message,
-          processed_at: new Date().toISOString()
+          failed_at: new Date().toISOString()
         })
         .eq('id', event.id);
 
-      throw processError;
+      // Don't throw error to prevent Stripe from retrying
+      // Return success but log the failure for monitoring
+      console.error(`Webhook processing failed for event ${event.id} after ${RETRY_CONFIG.maxRetries} retries`);
     }
 
     return new Response(JSON.stringify({ received: true }), {
@@ -165,11 +284,19 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
 
   // Note: Subscription cache will be populated by subscription.created webhook
 
-  // Send to integrations in parallel
-  await Promise.allSettled([
-    sendToZapier(customerData),
-    sendToMetaCAPI(customerData),
+  // Send to integrations in parallel with retry logic
+  const integrationResults = await Promise.allSettled([
+    retryWithBackoff(() => sendToZapier(customerData)),
+    retryWithBackoff(() => sendToMetaCAPI(customerData)),
   ]);
+
+  // Log any integration failures
+  integrationResults.forEach((result, index) => {
+    const integrationName = index === 0 ? 'Zapier' : 'Meta CAPI';
+    if (result.status === 'rejected') {
+      console.error(`${integrationName} integration failed after retries:`, result.reason);
+    }
+  });
 }
 
 async function handleSubscriptionCreated(subscription: Stripe.Subscription, supabase: any) {
