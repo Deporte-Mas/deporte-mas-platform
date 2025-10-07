@@ -1,4 +1,6 @@
-# Welcome to your Lovable project
+# DeporteMás Landing Page
+
+Landing page for DeporteMás Club with Stripe subscription integration.
 
 ## Project info
 
@@ -32,9 +34,29 @@ cd <YOUR_PROJECT_NAME>
 # Step 3: Install the necessary dependencies.
 npm i
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Step 4: Set up environment variables
+cp .env.example .env
+# Fill in your Supabase and Stripe keys
+
+# Step 5: Start the development server with auto-reloading and an instant preview.
 npm run dev
 ```
+
+## Stripe Integration Setup
+
+This landing page includes a complete Stripe subscription system. For detailed setup instructions:
+
+1. **Configuration Guide**: See [STRIPE_CONFIG.md](./STRIPE_CONFIG.md)
+2. **Test Configuration**: Run `node scripts/test-stripe-config.js`
+3. **Test Purchase Flow**: Follow [scripts/test-purchase-flow.md](./scripts/test-purchase-flow.md)
+
+### Quick Setup Checklist
+
+- [ ] Configure environment variables in `.env`
+- [ ] Set up Stripe products and prices
+- [ ] Configure webhook endpoint in Stripe Dashboard
+- [ ] Test with Stripe test cards
+- [ ] Deploy Supabase edge functions
 
 **Edit a file directly in GitHub**
 

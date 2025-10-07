@@ -162,51 +162,52 @@ supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_your_secret
 
 ## 💳 Stripe Setup
 
-### 1. Create Products
+**📚 For complete Stripe configuration, see [deporte-mas-landing/STRIPE_CONFIG.md](./deporte-mas-landing/STRIPE_CONFIG.md)**
 
-Create test products in your Stripe dashboard:
+### Quick Setup
+
+1. **Configure Environment Variables**
+   ```bash
+   cd deporte-mas-landing
+   # Check your configuration
+   node scripts/test-stripe-config.js
+   ```
+
+2. **Create Stripe Products**
+   - Monthly subscription: $20/month
+   - Annual subscription: $180/year
+   - Set up both test and production versions
+
+3. **Configure Webhooks**
+   - Add webhook endpoint: `https://your-project.supabase.co/functions/v1/stripe-webhook`
+   - Select required events (see STRIPE_CONFIG.md for details)
+
+4. **Test the Integration**
+   ```bash
+   cd deporte-mas-landing
+   # Follow the testing guide
+   cat scripts/test-purchase-flow.md
+   ```
+
+### Environment Variables Required
 
 ```bash
-# Monthly subscription
-stripe products create --name "Deporte+ Club Monthly" --description "Monthly subscription to Deporte+ Club"
+# Test environment
+STRIPE_TEST_SECRET_KEY=sk_test_...
+STRIPE_TEST_PRICE_MONTHLY=price_test_...
+STRIPE_TEST_PRICE_ANNUAL=price_test_...
+STRIPE_TEST_PRODUCT_MONTHLY=prod_test_...
+STRIPE_TEST_PRODUCT_ANNUAL=prod_test_...
 
-# Annual subscription
-stripe products create --name "Deporte+ Club Annual" --description "Annual subscription to Deporte+ Club"
+# Production environment
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_LIVE_PRICE_MONTHLY=price_live_...
+STRIPE_LIVE_PRICE_ANNUAL=price_live_...
+STRIPE_LIVE_PRODUCT_MONTHLY=prod_live_...
+STRIPE_LIVE_PRODUCT_ANNUAL=prod_live_...
 
-# Create prices for each product
-stripe prices create --product prod_YOUR_MONTHLY_ID --unit-amount 2000 --currency usd --recurring-interval month
-stripe prices create --product prod_YOUR_ANNUAL_ID --unit-amount 18000 --currency usd --recurring-interval year
-```
-
-### 2. Configure Webhooks
-
-1. Go to Stripe Dashboard → Webhooks
-2. Add endpoint: `https://your-project.supabase.co/functions/v1/stripe-webhook`
-3. Select events:
-   - `checkout.session.completed`
-   - `customer.subscription.created`
-   - `customer.subscription.updated`
-   - `customer.subscription.deleted`
-   - `invoice.payment_succeeded`
-   - `invoice.payment_failed`
-
-### 3. Update Product IDs
-
-Update the product IDs in `supabase/functions/create-checkout-session/index.ts`:
-
-```typescript
-const getProductConfig = (plan: string, isDev: boolean) => {
-  if (isDev) {
-    return plan === 'annual'
-      ? { priceId: "price_YOUR_TEST_ANNUAL_ID", productId: "prod_YOUR_TEST_ANNUAL_ID" }
-      : { priceId: "price_YOUR_TEST_MONTHLY_ID", productId: "prod_YOUR_TEST_MONTHLY_ID" };
-  } else {
-    // Live product IDs for production
-    return plan === 'annual'
-      ? { priceId: "price_YOUR_LIVE_ANNUAL_ID", productId: "prod_YOUR_LIVE_ANNUAL_ID" }
-      : { priceId: "price_YOUR_LIVE_MONTHLY_ID", productId: "prod_YOUR_LIVE_MONTHLY_ID" };
-  }
-};
+# Webhook
+STRIPE_WEBHOOK_SECRET=whsec_...
 ```
 
 ## 📊 Features

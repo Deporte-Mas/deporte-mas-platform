@@ -109,7 +109,7 @@ CREATE TABLE IF NOT EXISTS payments (
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS teams (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
+  name TEXT NOT NULL UNIQUE,
   short_name TEXT, -- CR, LDA, etc.
   logo_url TEXT,
   sport TEXT DEFAULT 'football',
@@ -255,6 +255,7 @@ CREATE TABLE IF NOT EXISTS course_modules (
   order_index INTEGER NOT NULL,
 
   created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
 
   UNIQUE(course_id, order_index)
 );
@@ -274,6 +275,7 @@ CREATE TABLE IF NOT EXISTS course_lessons (
   order_index INTEGER NOT NULL,
 
   created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
 
   UNIQUE(module_id, order_index)
 );
@@ -575,56 +577,56 @@ CREATE TABLE IF NOT EXISTS admin_actions (
 -- ============================================================================
 
 -- User optimization
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_email ON users(email);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_subscription_status ON users(subscription_status) WHERE subscription_status = 'active';
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_wallet_address ON users(wallet_address) WHERE wallet_address IS NOT NULL;
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_stripe_customer_id ON users(stripe_customer_id) WHERE stripe_customer_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_subscription_status ON users(subscription_status) WHERE subscription_status = 'active';
+CREATE INDEX IF NOT EXISTS idx_users_wallet_address ON users(wallet_address) WHERE wallet_address IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_users_stripe_customer_id ON users(stripe_customer_id) WHERE stripe_customer_id IS NOT NULL;
 
 -- Subscription optimization
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_subscriptions_stripe_subscription_id ON subscriptions(stripe_subscription_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_subscriptions_status ON subscriptions(status);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_stripe_subscription_id ON subscriptions(stripe_subscription_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status);
 
 -- Payment optimization
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_payments_stripe_invoice_id ON payments(stripe_invoice_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_payments_user_id ON payments(user_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_payments_status ON payments(status);
+CREATE INDEX IF NOT EXISTS idx_payments_stripe_invoice_id ON payments(stripe_invoice_id);
+CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id);
+CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
 
 -- Video optimization
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_videos_status ON videos(status, created_at) WHERE status = 'ready';
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_videos_mux_asset ON videos(mux_asset_id) WHERE mux_asset_id IS NOT NULL;
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_videos_stream ON videos(stream_id) WHERE stream_id IS NOT NULL;
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_videos_search ON videos USING gin(to_tsvector('spanish', title || ' ' || COALESCE(description, '')));
+CREATE INDEX IF NOT EXISTS idx_videos_status ON videos(status, created_at) WHERE status = 'ready';
+CREATE INDEX IF NOT EXISTS idx_videos_mux_asset ON videos(mux_asset_id) WHERE mux_asset_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_videos_stream ON videos(stream_id) WHERE stream_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_videos_search ON videos USING gin(to_tsvector('spanish', title || ' ' || COALESCE(description, '')));
 
 -- Course optimization
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_courses_published ON courses(is_published, created_at) WHERE is_published = true;
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_courses_search ON courses USING gin(to_tsvector('spanish', title || ' ' || COALESCE(description, '')));
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_course_modules_course ON course_modules(course_id, order_index);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_course_lessons_module ON course_lessons(module_id, order_index);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_course_lessons_video ON course_lessons(video_id) WHERE video_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_courses_published ON courses(is_published, created_at) WHERE is_published = true;
+CREATE INDEX IF NOT EXISTS idx_courses_search ON courses USING gin(to_tsvector('spanish', title || ' ' || COALESCE(description, '')));
+CREATE INDEX IF NOT EXISTS idx_course_modules_course ON course_modules(course_id, order_index);
+CREATE INDEX IF NOT EXISTS idx_course_lessons_module ON course_lessons(module_id, order_index);
+CREATE INDEX IF NOT EXISTS idx_course_lessons_video ON course_lessons(video_id) WHERE video_id IS NOT NULL;
 
 -- Streaming optimization
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_streams_status_start ON streams(status, scheduled_start) WHERE status IN ('scheduled', 'live');
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_chat_messages_stream_time ON chat_messages(stream_id, created_at);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_stream_viewers_stream_user ON stream_viewers(stream_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_streams_status_start ON streams(status, scheduled_start) WHERE status IN ('scheduled', 'live');
+CREATE INDEX IF NOT EXISTS idx_chat_messages_stream_time ON chat_messages(stream_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_stream_viewers_stream_user ON stream_viewers(stream_id, user_id);
 
 -- Points optimization
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_points_ledger_user_date ON points_ledger(user_id, created_at DESC);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_points_ledger_type ON points_ledger(transaction_type, created_at);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_points_ledger_tx_hash ON points_ledger(blockchain_tx_hash) WHERE blockchain_tx_hash IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_points_ledger_user_date ON points_ledger(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_points_ledger_type ON points_ledger(transaction_type, created_at);
+CREATE INDEX IF NOT EXISTS idx_points_ledger_tx_hash ON points_ledger(blockchain_tx_hash) WHERE blockchain_tx_hash IS NOT NULL;
 
 -- Giveaway optimization
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_giveaways_status_end ON giveaways(status, ends_at) WHERE status = 'active';
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_giveaway_entries_user ON giveaway_entries(user_id, giveaway_id);
+CREATE INDEX IF NOT EXISTS idx_giveaways_status_end ON giveaways(status, ends_at) WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_giveaway_entries_user ON giveaway_entries(user_id, giveaway_id);
 
 -- Engagement optimization
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_engagement_user_type ON engagement_activities(user_id, activity_type, created_at);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_progress_user_video ON user_progress(user_id, video_id) WHERE video_id IS NOT NULL;
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_progress_user_lesson ON user_progress(user_id, lesson_id) WHERE lesson_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_engagement_user_type ON engagement_activities(user_id, activity_type, created_at);
+CREATE INDEX IF NOT EXISTS idx_user_progress_user_video ON user_progress(user_id, video_id) WHERE video_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_user_progress_user_lesson ON user_progress(user_id, lesson_id) WHERE lesson_id IS NOT NULL;
 
 -- Poll optimization
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_polls_status ON polls(status, ends_at);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_poll_votes_poll_user ON poll_votes(poll_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_polls_status ON polls(status, ends_at);
+CREATE INDEX IF NOT EXISTS idx_poll_votes_poll_user ON poll_votes(poll_id, user_id);
 
 -- ============================================================================
 -- AUTOMATED FUNCTIONS & TRIGGERS
@@ -637,7 +639,7 @@ BEGIN
     NEW.updated_at = NOW();
     RETURN NEW;
 END;
-$$ language 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 -- Add updated_at triggers to relevant tables
 DROP TRIGGER IF EXISTS update_users_updated_at ON users;
@@ -707,7 +709,7 @@ BEGIN
   );
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Create trigger to automatically create user profile
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
@@ -720,7 +722,8 @@ CREATE TRIGGER on_auth_user_created
 -- ============================================================================
 
 -- Function to get user subscription status
-CREATE OR REPLACE FUNCTION get_user_subscription_status(user_id UUID DEFAULT auth.uid())
+-- NOTE: This function will be replaced by migration 2 with subscription_cache integration
+CREATE OR REPLACE FUNCTION get_user_subscription_status(p_user_id UUID DEFAULT auth.uid())
 RETURNS TABLE (
   user_id UUID,
   email TEXT,
@@ -735,12 +738,11 @@ BEGIN
     u.email,
     u.subscription_status,
     u.plan_type,
-    s.current_period_end
+    u.subscription_ends_at
   FROM users u
-  LEFT JOIN subscriptions s ON u.stripe_subscription_id = s.stripe_subscription_id
-  WHERE u.id = COALESCE(user_id, auth.uid());
+  WHERE u.id = COALESCE(p_user_id, auth.uid());
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Function to update user profile
 CREATE OR REPLACE FUNCTION update_user_profile(
@@ -775,7 +777,7 @@ BEGIN
     'updated_at', updated_user.updated_at
   );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Function to increment stream chat count
 CREATE OR REPLACE FUNCTION increment_chat_count(stream_id UUID)
@@ -852,7 +854,7 @@ CREATE POLICY "Videos require subscription access" ON videos
 CREATE POLICY "Courses require subscription access" ON courses
   FOR SELECT USING (
     CASE
-      WHEN is_public = true THEN true
+      WHEN is_published = false THEN false
       WHEN requires_subscription = true THEN
         EXISTS (
           SELECT 1 FROM users
@@ -866,7 +868,7 @@ CREATE POLICY "Courses require subscription access" ON courses
 
 -- Chat requires active Stripe subscription
 CREATE POLICY "Chat requires active Stripe subscription" ON chat_messages
-  FOR INSERT USING (
+  FOR INSERT WITH CHECK (
     EXISTS (
       SELECT 1 FROM users
       WHERE id = auth.uid()
@@ -877,7 +879,7 @@ CREATE POLICY "Chat requires active Stripe subscription" ON chat_messages
 
 -- Giveaway participation requires Stripe subscription
 CREATE POLICY "Giveaways require active Stripe subscription" ON giveaway_entries
-  FOR INSERT USING (
+  FOR INSERT WITH CHECK (
     EXISTS (
       SELECT 1 FROM users
       WHERE id = auth.uid()
@@ -1030,7 +1032,6 @@ SELECT
   u.id,
   u.email,
   u.subscription_status,
-  u.subscription_tier,
   u.total_points_earned,
   COUNT(DISTINCT sv.stream_id) as streams_watched,
   COUNT(DISTINCT COALESCE(up.video_id, up.lesson_id)) as content_viewed,
@@ -1045,7 +1046,7 @@ LEFT JOIN chat_messages cm ON u.id = cm.user_id AND cm.is_deleted = false
 LEFT JOIN poll_votes pv ON u.id = pv.user_id
 LEFT JOIN giveaway_entries ge ON u.id = ge.user_id
 WHERE u.subscription_status = 'active'
-GROUP BY u.id, u.email, u.subscription_status, u.subscription_tier, u.total_points_earned;
+GROUP BY u.id, u.email, u.subscription_status, u.total_points_earned;
 
 -- Video performance view
 CREATE OR REPLACE VIEW video_performance AS
@@ -1073,7 +1074,6 @@ SELECT
   c.title,
   c.description,
   c.is_published,
-  c.is_public,
   c.requires_subscription,
   COUNT(DISTINCT cl.id) as total_lessons,
   COUNT(DISTINCT up.lesson_id) as lessons_with_progress,
@@ -1085,7 +1085,7 @@ LEFT JOIN course_modules cm ON c.id = cm.course_id
 LEFT JOIN course_lessons cl ON cm.id = cl.module_id
 LEFT JOIN user_progress up ON cl.id = up.lesson_id
 WHERE c.is_published = true
-GROUP BY c.id, c.title, c.description, c.is_published, c.is_public, c.requires_subscription;
+GROUP BY c.id, c.title, c.description, c.is_published, c.requires_subscription;
 
 -- ============================================================================
 -- PERMISSIONS

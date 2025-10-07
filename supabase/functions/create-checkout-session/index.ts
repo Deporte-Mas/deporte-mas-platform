@@ -12,14 +12,25 @@ serve(async (req) => {
   }
 
   try {
-    // Environment configuration
-    const devMode = Deno.env.get('VITE_DEV_MODE') === 'true';
+    // Environment configuration - check multiple ways to determine mode
+    const devModeEnv = Deno.env.get('VITE_DEV_MODE');
+    const nodeEnv = Deno.env.get('NODE_ENV');
+    const supabaseEnv = Deno.env.get('SUPABASE_ENVIRONMENT');
+
+    // Determine if we're in development mode
+    const devMode = devModeEnv === 'true' ||
+                   nodeEnv === 'development' ||
+                   supabaseEnv === 'development' ||
+                   (!devModeEnv && !nodeEnv && !supabaseEnv); // Default to dev if not specified
+
+    console.log(`Running in ${devMode ? 'development' : 'production'} mode`);
+
     const stripeSecretKey = devMode
       ? Deno.env.get('STRIPE_TEST_SECRET_KEY')
       : Deno.env.get('STRIPE_SECRET_KEY');
 
     if (!stripeSecretKey) {
-      throw new Error('Stripe secret key not configured');
+      throw new Error(`Stripe ${devMode ? 'test' : 'live'} secret key not configured`);
     }
 
     const stripe = new Stripe(stripeSecretKey);
@@ -32,15 +43,43 @@ serve(async (req) => {
     // Product configuration based on plan type and environment
     const getProductConfig = (plan: string, isDev: boolean) => {
       if (isDev) {
-        // Test product IDs (replace with actual test IDs from Stripe)
-        return plan === 'annual'
-          ? { priceId: "price_TEST_ANNUAL_ID", productId: "prod_TEST_ANNUAL_ID" }
-          : { priceId: "price_TEST_MONTHLY_ID", productId: "prod_TEST_MONTHLY_ID" };
+        // Test environment price IDs
+        const testPriceIds = {
+          monthly: Deno.env.get('STRIPE_TEST_PRICE_MONTHLY'),
+          annual: Deno.env.get('STRIPE_TEST_PRICE_ANNUAL')
+        };
+        const testProductIds = {
+          monthly: Deno.env.get('STRIPE_TEST_PRODUCT_MONTHLY'),
+          annual: Deno.env.get('STRIPE_TEST_PRODUCT_ANNUAL')
+        };
+
+        if (!testPriceIds[plan] || !testProductIds[plan]) {
+          throw new Error(`Missing Stripe test ${plan} price or product ID in environment variables`);
+        }
+
+        return {
+          priceId: testPriceIds[plan],
+          productId: testProductIds[plan]
+        };
       } else {
-        // Live product IDs (replace with actual live IDs from Stripe)
-        return plan === 'annual'
-          ? { priceId: "price_LIVE_ANNUAL_ID", productId: "prod_LIVE_ANNUAL_ID" }
-          : { priceId: "price_LIVE_MONTHLY_ID", productId: "prod_LIVE_MONTHLY_ID" };
+        // Production environment price IDs
+        const livePriceIds = {
+          monthly: Deno.env.get('STRIPE_LIVE_PRICE_MONTHLY'),
+          annual: Deno.env.get('STRIPE_LIVE_PRICE_ANNUAL')
+        };
+        const liveProductIds = {
+          monthly: Deno.env.get('STRIPE_LIVE_PRODUCT_MONTHLY'),
+          annual: Deno.env.get('STRIPE_LIVE_PRODUCT_ANNUAL')
+        };
+
+        if (!livePriceIds[plan] || !liveProductIds[plan]) {
+          throw new Error(`Missing Stripe live ${plan} price or product ID in environment variables`);
+        }
+
+        return {
+          priceId: livePriceIds[plan],
+          productId: liveProductIds[plan]
+        };
       }
     };
 
