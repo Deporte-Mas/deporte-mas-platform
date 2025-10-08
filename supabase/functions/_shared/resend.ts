@@ -4,7 +4,7 @@
  */
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-const FROM_EMAIL = 'Deporte+ Club <noreply@deportemas.com>';
+const FROM_EMAIL = 'Deporte+ Club <equipo@deportemas.com>';
 
 interface SendEmailParams {
   to: string;

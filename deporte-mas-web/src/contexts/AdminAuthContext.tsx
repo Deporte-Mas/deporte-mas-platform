@@ -49,6 +49,19 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return;
       }
 
+      // Skip backend verification for dev mock token
+      if (DEV_MODE && sessionToken === 'dev-mock-token') {
+        const mockUser: AdminUser = {
+          id: 'dev-admin',
+          email: 'dev@localhost',
+          name: 'Dev Admin',
+          role: 'super_admin'
+        };
+        setUser(mockUser);
+        setIsLoading(false);
+        return;
+      }
+
       // Verify session with backend
       const { data, error } = await supabase.functions.invoke('admin-verify-session', {
         body: { sessionToken }
