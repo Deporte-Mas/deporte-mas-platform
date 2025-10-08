@@ -387,22 +387,34 @@ async function handleInvoicePaid(invoice: Stripe.Invoice, supabase: any, stripe:
     return;
   }
 
-  // Fetch subscription details to provision/extend access
+  // Extract period from invoice line items (more reliable than subscription object)
   // This handles BOTH initial subscriptions and recurring payments
   try {
-    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    const subscriptionLine = invoice.lines.data.find((line: any) => line.subscription === subscriptionId);
+
+    if (!subscriptionLine || !subscriptionLine.period) {
+      console.error('Could not find subscription line item with period data');
+      throw new Error('Missing subscription period in invoice');
+    }
+
+    const periodStart = new Date(subscriptionLine.period.start * 1000);
+    const periodEnd = new Date(subscriptionLine.period.end * 1000);
 
     console.log(`Provisioning subscription access for: ${customerId}`);
-    console.log(`Period: ${new Date(subscription.current_period_start * 1000).toISOString()} to ${new Date(subscription.current_period_end * 1000).toISOString()}`);
+    console.log(`Subscription: ${subscriptionId}`);
+    console.log(`Period: ${periodStart.toISOString()} to ${periodEnd.toISOString()}`);
+
+    // Fetch subscription for status and cancel_at_period_end
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
 
     // Update subscription cache - this provisions access for both new and recurring subscriptions
     const { error: cacheError } = await supabase
       .rpc('update_subscription_cache', {
-        p_stripe_subscription_id: subscription.id,
+        p_stripe_subscription_id: subscriptionId,
         p_stripe_customer_id: customerId,
         p_status: subscription.status,
-        p_current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-        p_current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+        p_current_period_start: periodStart.toISOString(),
+        p_current_period_end: periodEnd.toISOString(),
         p_cancel_at_period_end: subscription.cancel_at_period_end,
         p_stripe_updated_at: new Date().toISOString()
       });
