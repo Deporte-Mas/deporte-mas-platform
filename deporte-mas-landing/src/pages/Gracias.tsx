@@ -1,19 +1,18 @@
 import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 
 const Gracias = () => {
-  const [joinCode, setJoinCode] = useState<string>("");
+  const [searchParams] = useSearchParams();
+  const sessionId = searchParams.get('session_id');
 
   useEffect(() => {
-    // Generate a random join code for demo purposes
-    // In production, this would come from URL params or API
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    setJoinCode(`DC${code}`);
-  }, []);
-
-  const handleJoinGroup = () => {
-    window.open("https://www.facebook.com/groups/deporteplusclub", "_blank");
-  };
+    // Email is sent via webhook, customer will receive it
+    // We don't need to fetch session details on frontend
+    if (sessionId) {
+      console.log('Payment successful, session:', sessionId);
+    }
+  }, [sessionId]);
 
   return (
     <div className="min-h-screen bg-gradient-hero flex items-center justify-center px-4">
@@ -36,17 +35,22 @@ const Gracias = () => {
           del programa deportivo #1 de Costa Rica.
         </p>
 
-        {/* Join Code Section */}
+        {/* Email Check Section */}
         <div className="bg-gradient-card p-8 rounded-2xl shadow-card border border-primary/20 mb-12">
-          <h2 className="text-2xl font-headline text-accent mb-4">TU CÓDIGO DE ACCESO</h2>
-          <div className="bg-background/50 p-6 rounded-xl mb-6">
-            <span className="text-3xl font-headline text-primary tracking-wider">
-              {joinCode}
-            </span>
+          <div className="text-center mb-6">
+            <div className="inline-block bg-accent/20 p-4 rounded-full mb-4">
+              <span className="text-4xl">📧</span>
+            </div>
           </div>
-          <p className="text-muted-foreground font-body text-sm">
-            Usa este código para unirte al grupo privado de Facebook
-          </p>
+          <h2 className="text-2xl font-headline text-accent mb-4 text-center">REVISA TU EMAIL</h2>
+          <div className="bg-background/50 p-6 rounded-xl mb-6">
+            <p className="text-center text-muted-foreground font-body mb-2">
+              Hemos enviado un enlace de acceso a tu email de pago
+            </p>
+            <p className="text-muted-foreground font-body text-sm text-center mt-4">
+              Haz clic en el enlace para acceder a la app móvil
+            </p>
+          </div>
         </div>
 
         {/* Instructions */}
@@ -60,10 +64,10 @@ const Gracias = () => {
               </div>
               <div>
                 <h3 className="font-body font-bold text-foreground mb-1">
-                  Únete al grupo privado de Facebook
+                  Revisa tu email
                 </h3>
                 <p className="text-muted-foreground font-body text-sm">
-                  Haz clic en el botón de abajo para acceder al grupo exclusivo
+                  Te hemos enviado un enlace de acceso mágico
                 </p>
               </div>
             </div>
@@ -74,10 +78,10 @@ const Gracias = () => {
               </div>
               <div>
                 <h3 className="font-body font-bold text-foreground mb-1">
-                  Responde las preguntas de membresía
+                  Descarga la app móvil
                 </h3>
                 <p className="text-muted-foreground font-body text-sm">
-                  Incluye tu código de acceso: <strong className="text-primary">{joinCode}</strong>
+                  Disponible próximamente en App Store y Google Play
                 </p>
               </div>
             </div>
@@ -85,6 +89,20 @@ const Gracias = () => {
             <div className="flex gap-4">
               <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold">
                 3
+              </div>
+              <div>
+                <h3 className="font-body font-bold text-foreground mb-1">
+                  Haz clic en el enlace del email
+                </h3>
+                <p className="text-muted-foreground font-body text-sm">
+                  Serás redirigido automáticamente a la app
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold">
+                4
               </div>
               <div>
                 <h3 className="font-body font-bold text-foreground mb-1">
@@ -100,17 +118,8 @@ const Gracias = () => {
 
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-12">
-          <Button 
-            variant="hero" 
-            size="xl"
-            onClick={handleJoinGroup}
-            className="w-full sm:w-auto"
-          >
-            UNIRSE AL GRUPO
-          </Button>
-          
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="xl"
             onClick={() => window.location.href = "/"}
             className="w-full sm:w-auto"
@@ -122,10 +131,10 @@ const Gracias = () => {
         {/* Support */}
         <div className="text-center">
           <p className="text-muted-foreground font-body mb-4">
-            ¿Tienes problemas para acceder? Escríbenos por WhatsApp
+            ¿No recibiste el email? Revisa tu carpeta de spam o escríbenos
           </p>
-          <a 
-            href={`https://wa.me/50688888888?text=Hola,%20soy%20nuevo%20miembro%20de%20Deporte+%20Club.%20Mi%20código%20es:%20${joinCode}`}
+          <a
+            href="https://wa.me/50688888888?text=Hola,%20soy%20nuevo%20miembro%20de%20Deporte+%20Club.%20No%20recibí%20el%20email%20de%20acceso."
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-body font-bold transition-smooth"

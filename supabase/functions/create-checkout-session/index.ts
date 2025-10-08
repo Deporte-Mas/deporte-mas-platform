@@ -83,7 +83,7 @@ serve(async (req) => {
       ui_mode: 'embedded',
       line_items: [{ price: priceId, quantity: 1 }],
       mode: planType === 'annual' ? 'subscription' : 'subscription',
-      return_url: returnUrl,
+      return_url: `${returnUrl}?session_id={CHECKOUT_SESSION_ID}`,
 
       // Data collection
       billing_address_collection: 'auto',
