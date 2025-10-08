@@ -173,8 +173,8 @@ serve(async (req) => {
         case "checkout.session.completed":
           await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session, supabase, devMode);
           break;
-        case "customer.subscription.created":
-          await handleSubscriptionCreated(event.data.object as Stripe.Subscription, supabase, devMode);
+        case "invoice.paid":
+          await handleInvoicePaid(event.data.object as Stripe.Invoice, supabase, stripe, devMode);
           break;
         case "customer.subscription.updated":
           await handleSubscriptionUpdated(event.data.object as Stripe.Subscription, supabase, devMode);
@@ -244,48 +244,43 @@ serve(async (req) => {
 });
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabase: any, isTestMode = false) {
-  const customerData = {
-    email: session.customer_details?.email,
-    name: session.customer_details?.name,
-    phone: session.customer_details?.phone,
-    country: session.customer_details?.address?.country,
-    amount: session.amount_total || 0,
-    currency: session.currency || "usd",
-    customerId: session.customer as string,
-    subscriptionId: session.subscription as string,
-    metadata: session.metadata,
-  };
+  console.log(`[${isTestMode ? 'TEST' : 'LIVE'}] Checkout completed:`, session.id);
 
-  console.log(`[${isTestMode ? 'TEST' : 'LIVE'}] Customer data from checkout:`, customerData);
+  // Extract customer details from checkout session
+  const customerEmail = session.customer_details?.email;
+  const customerName = session.customer_details?.name;
+  const customerPhone = session.customer_details?.phone;
+  const customerId = session.customer as string;
+  const subscriptionId = session.subscription as string;
 
-  if (!customerData.email) {
+  if (!customerEmail) {
     console.error('No email in checkout session');
     return;
   }
 
+  console.log(`Customer email: ${customerEmail}`);
+  console.log(`Subscription ID: ${subscriptionId}`);
+
   // STEP 1: Create or get auth user
   let authUserId: string | null = null;
+  let isNewUser = false;
 
   try {
-    // Check if auth user exists
     const { data: existingUsers } = await supabase.auth.admin.listUsers({
-      filter: `email.eq.${customerData.email}`,
+      filter: `email.eq.${customerEmail}`,
     });
 
     if (existingUsers && existingUsers.users.length > 0) {
-      // User exists
       authUserId = existingUsers.users[0].id;
       console.log('Auth user already exists:', authUserId);
     } else {
-      // Create new auth user
       const { data: newUser, error: authError } = await supabase.auth.admin.createUser({
-        email: customerData.email,
-        email_confirm: true, // Auto-confirm, they paid
+        email: customerEmail,
+        email_confirm: true,
         user_metadata: {
-          name: customerData.name,
-          phone: customerData.phone,
-          country: customerData.country,
-          stripe_customer_id: customerData.customerId,
+          name: customerName,
+          phone: customerPhone,
+          stripe_customer_id: customerId,
         },
       });
 
@@ -295,6 +290,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
       }
 
       authUserId = newUser.user.id;
+      isNewUser = true;
       console.log('Auth user created:', authUserId);
     }
   } catch (error) {
@@ -303,17 +299,28 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
   }
 
   // STEP 2: Create or update users table record
+  let isNewSubscriber = false;
+
   if (authUserId) {
+    // Check if user has ever subscribed before
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('id, subscription_started_at')
+      .eq('id', authUserId)
+      .single();
+
+    isNewSubscriber = !existingUser || !existingUser.subscription_started_at;
+
     const { error: upsertError } = await supabase
       .from('users')
       .upsert({
         id: authUserId,
-        email: customerData.email,
-        name: customerData.name,
-        phone: customerData.phone,
-        country: customerData.country,
-        stripe_customer_id: customerData.customerId,
-        subscription_started_at: new Date().toISOString(),
+        email: customerEmail,
+        name: customerName,
+        phone: customerPhone,
+        stripe_customer_id: customerId,
+        // Only set subscription_started_at for first-ever subscription
+        ...(isNewSubscriber ? { subscription_started_at: new Date().toISOString() } : {}),
         updated_at: new Date().toISOString()
       }, {
         onConflict: 'id'
@@ -322,47 +329,93 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
     if (upsertError) {
       console.error('Error upserting user record:', upsertError);
     } else {
-      console.log('User record upserted successfully');
+      console.log(`User record upserted (${isNewSubscriber ? 'FIRST' : 'RETURNING'} subscription)`);
     }
   }
 
-  // STEP 3: Note - Subscription cache will be populated by subscription.created webhook
+  // STEP 3: Send integrations only for new subscribers
+  // Note: Subscription provisioning happens in invoice.paid event
+  if (isNewSubscriber) {
+    console.log('New subscriber - sending welcome email and integrations');
 
-  // STEP 4: Send to integrations in parallel with retry logic
-  const integrationResults = await Promise.allSettled([
-    retryWithBackoff(() => sendWelcomeEmail(customerData, supabase)),
-    retryWithBackoff(() => sendToZapier(customerData)),
-    retryWithBackoff(() => sendToMetaCAPI(customerData)),
-  ]);
+    const customerData = {
+      email: customerEmail,
+      name: customerName,
+      phone: customerPhone,
+      customerId: customerId,
+      subscriptionId: subscriptionId,
+    };
 
-  // Log any integration failures
-  integrationResults.forEach((result, index) => {
-    const integrationName = index === 0 ? 'Welcome Email' : index === 1 ? 'Zapier' : 'Meta CAPI';
-    if (result.status === 'rejected') {
-      console.error(`${integrationName} integration failed after retries:`, result.reason);
-    } else {
-      console.log(`${integrationName} integration completed successfully`);
-    }
-  });
+    const integrationResults = await Promise.allSettled([
+      retryWithBackoff(() => sendWelcomeEmail(customerData, supabase)),
+      retryWithBackoff(() => sendToZapier(customerData)),
+      retryWithBackoff(() => sendToMetaCAPI(customerData)),
+    ]);
+
+    integrationResults.forEach((result, index) => {
+      const integrationName = index === 0 ? 'Welcome Email' : index === 1 ? 'Zapier' : 'Meta CAPI';
+      if (result.status === 'rejected') {
+        console.error(`${integrationName} integration failed after retries:`, result.reason);
+      } else {
+        console.log(`${integrationName} integration completed successfully`);
+      }
+    });
+  } else {
+    console.log('Returning subscriber - skipping welcome email and integrations');
+
+    // TODO: Implement "Welcome Back" email for returning subscribers
+    // const welcomeBackData = {
+    //   email: customerEmail,
+    //   name: customerName,
+    //   customerId: customerId,
+    //   subscriptionId: subscriptionId,
+    // };
+    // await sendWelcomeBackEmail(welcomeBackData, supabase);
+  }
 }
 
-async function handleSubscriptionCreated(subscription: Stripe.Subscription, supabase: any, isTestMode = false) {
-  console.log(`[${isTestMode ? 'TEST' : 'LIVE'}] Subscription created:`, subscription.id);
+async function handleInvoicePaid(invoice: Stripe.Invoice, supabase: any, stripe: Stripe, isTestMode = false) {
+  console.log(`[${isTestMode ? 'TEST' : 'LIVE'}] Invoice paid:`, invoice.id);
+  console.log(`Subscription: ${invoice.subscription}`);
+  console.log(`Amount paid: ${invoice.amount_paid / 100} ${invoice.currency.toUpperCase()}`);
 
-  // Update subscription cache using helper function
-  const { error } = await supabase
-    .rpc('update_subscription_cache', {
-      p_stripe_subscription_id: subscription.id,
-      p_stripe_customer_id: subscription.customer as string,
-      p_status: subscription.status,
-      p_current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-      p_current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-      p_cancel_at_period_end: subscription.cancel_at_period_end,
-      p_stripe_updated_at: new Date(subscription.created * 1000).toISOString()
-    });
+  const subscriptionId = invoice.subscription as string;
+  const customerId = invoice.customer as string;
 
-  if (error) {
-    console.error('Error updating subscription cache:', error);
+  if (!subscriptionId) {
+    console.log('No subscription associated with this invoice (one-time payment)');
+    return;
+  }
+
+  // Fetch subscription details to provision/extend access
+  // This handles BOTH initial subscriptions and recurring payments
+  try {
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+    console.log(`Provisioning subscription access for: ${customerId}`);
+    console.log(`Period: ${new Date(subscription.current_period_start * 1000).toISOString()} to ${new Date(subscription.current_period_end * 1000).toISOString()}`);
+
+    // Update subscription cache - this provisions access for both new and recurring subscriptions
+    const { error: cacheError } = await supabase
+      .rpc('update_subscription_cache', {
+        p_stripe_subscription_id: subscription.id,
+        p_stripe_customer_id: customerId,
+        p_status: subscription.status,
+        p_current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+        p_current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+        p_cancel_at_period_end: subscription.cancel_at_period_end,
+        p_stripe_updated_at: new Date().toISOString()
+      });
+
+    if (cacheError) {
+      console.error('[ERROR] Failed to provision subscription:', cacheError);
+      throw cacheError;
+    } else {
+      console.log('[SUCCESS] Subscription access provisioned/extended');
+    }
+  } catch (error) {
+    console.error('Error processing invoice.paid:', error);
+    throw error;
   }
 }
 
