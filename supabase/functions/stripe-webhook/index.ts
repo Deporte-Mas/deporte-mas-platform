@@ -66,10 +66,24 @@ serve(async (req) => {
 
     const body = await req.text();
 
+    // Environment configuration - check VITE_DEV_MODE
+    // This should be set in Supabase Dashboard secrets to match frontend environment
+    const devMode = Deno.env.get('VITE_DEV_MODE') === 'true';
+
+    console.log(`Webhook running in ${devMode ? 'development' : 'production'} mode`);
+
+    // Select appropriate webhook secret and Stripe key based on dev mode
+    const webhookSecret = devMode
+      ? Deno.env.get("STRIPE_TEST_WEBHOOK_SECRET")
+      : Deno.env.get("STRIPE_WEBHOOK_SECRET");
+
+    const stripeSecretKey = devMode
+      ? Deno.env.get('STRIPE_TEST_SECRET_KEY')
+      : Deno.env.get('STRIPE_SECRET_KEY');
+
     // Validate webhook secret is configured
-    const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
     if (!webhookSecret) {
-      console.error("Webhook validation failed: STRIPE_WEBHOOK_SECRET not configured");
+      console.error(`Webhook validation failed: STRIPE_${devMode ? 'TEST_' : ''}WEBHOOK_SECRET not configured`);
       return new Response(JSON.stringify({
         error: "Webhook secret not configured",
         code: "MISSING_WEBHOOK_SECRET"
@@ -78,16 +92,6 @@ serve(async (req) => {
         status: 500,
       });
     }
-
-    // Environment configuration - check VITE_DEV_MODE
-    // This should be set in Supabase Dashboard secrets to match frontend environment
-    const devMode = Deno.env.get('VITE_DEV_MODE') === 'true';
-
-    console.log(`Webhook running in ${devMode ? 'development' : 'production'} mode`);
-
-    const stripeSecretKey = devMode
-      ? Deno.env.get('STRIPE_TEST_SECRET_KEY')
-      : Deno.env.get('STRIPE_SECRET_KEY');
 
     // Validate Stripe secret key is available
     if (!stripeSecretKey) {
@@ -123,7 +127,7 @@ serve(async (req) => {
       });
     }
 
-    console.log(`Processing ${event.type}`);
+    console.log(`Processing ${event.type} [${devMode ? 'TEST' : 'LIVE'} mode]`);
 
     // Initialize Supabase client for database operations
     const supabase = createClient(
@@ -167,16 +171,16 @@ serve(async (req) => {
     const processEvent = async (): Promise<void> => {
       switch (event.type) {
         case "checkout.session.completed":
-          await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session, supabase);
+          await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session, supabase, devMode);
           break;
         case "customer.subscription.created":
-          await handleSubscriptionCreated(event.data.object as Stripe.Subscription, supabase);
+          await handleSubscriptionCreated(event.data.object as Stripe.Subscription, supabase, devMode);
           break;
         case "customer.subscription.updated":
-          await handleSubscriptionUpdated(event.data.object as Stripe.Subscription, supabase);
+          await handleSubscriptionUpdated(event.data.object as Stripe.Subscription, supabase, devMode);
           break;
         case "customer.subscription.deleted":
-          await handleSubscriptionDeleted(event.data.object as Stripe.Subscription, supabase);
+          await handleSubscriptionDeleted(event.data.object as Stripe.Subscription, supabase, devMode);
           break;
         default:
           console.log(`Unhandled event type: ${event.type}`);
@@ -239,7 +243,7 @@ serve(async (req) => {
   }
 });
 
-async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabase: any) {
+async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabase: any, isTestMode = false) {
   const customerData = {
     email: session.customer_details?.email,
     name: session.customer_details?.name,
@@ -252,7 +256,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
     metadata: session.metadata,
   };
 
-  console.log("Customer data from checkout:", customerData);
+  console.log(`[${isTestMode ? 'TEST' : 'LIVE'}] Customer data from checkout:`, customerData);
 
   if (!customerData.email) {
     console.error('No email in checkout session');
@@ -342,8 +346,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
   });
 }
 
-async function handleSubscriptionCreated(subscription: Stripe.Subscription, supabase: any) {
-  console.log("Subscription created:", subscription.id);
+async function handleSubscriptionCreated(subscription: Stripe.Subscription, supabase: any, isTestMode = false) {
+  console.log(`[${isTestMode ? 'TEST' : 'LIVE'}] Subscription created:`, subscription.id);
 
   // Update subscription cache using helper function
   const { error } = await supabase
@@ -362,8 +366,8 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription, supa
   }
 }
 
-async function handleSubscriptionUpdated(subscription: Stripe.Subscription, supabase: any) {
-  console.log("Subscription updated:", subscription.id);
+async function handleSubscriptionUpdated(subscription: Stripe.Subscription, supabase: any, isTestMode = false) {
+  console.log(`[${isTestMode ? 'TEST' : 'LIVE'}] Subscription updated:`, subscription.id);
 
   // Update subscription cache using helper function
   const { error } = await supabase
@@ -382,8 +386,8 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, supa
   }
 }
 
-async function handleSubscriptionDeleted(subscription: Stripe.Subscription, supabase: any) {
-  console.log("Subscription cancelled:", subscription.id);
+async function handleSubscriptionDeleted(subscription: Stripe.Subscription, supabase: any, isTestMode = false) {
+  console.log(`[${isTestMode ? 'TEST' : 'LIVE'}] Subscription cancelled:`, subscription.id);
 
   // Update subscription cache to canceled status - this will trigger cascade effects
   const { error } = await supabase
