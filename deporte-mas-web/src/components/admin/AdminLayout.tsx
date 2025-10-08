@@ -1,28 +1,28 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
   Users,
-  CreditCard,
-  Receipt,
+  BookOpen,
+  Video,
+  Radio,
   Menu,
-  X
+  X,
+  LogOut
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-
-interface LayoutProps {
-  children: React.ReactNode;
-}
+import { useAdminAuth } from '@/contexts/AdminAuthContext';
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Usuarios', href: '/users', icon: Users },
-  { name: 'Suscripciones', href: '/subscriptions', icon: CreditCard },
-  { name: 'Pagos', href: '/payments', icon: Receipt },
+  { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
+  { name: 'Users', href: '/admin/users', icon: Users },
+  { name: 'Courses', href: '/admin/courses', icon: BookOpen },
+  { name: 'Videos', href: '/admin/videos', icon: Video },
+  { name: 'Livestreams', href: '/admin/livestreams', icon: Radio },
 ];
 
-const Layout: React.FC<LayoutProps> = ({ children }) => {
+export const AdminLayout: React.FC = () => {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
@@ -70,7 +70,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <Menu className="h-6 w-6" />
             </Button>
             <h1 className="text-2xl font-semibold text-gray-900">
-              {navigation.find(item => item.href === location.pathname)?.name || 'Dashboard'}
+              {navigation.find(item => item.href === location.pathname)?.name || 'Admin'}
             </h1>
             <div className="text-sm text-gray-500">
               Deporte+ Admin
@@ -80,7 +80,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* Page content */}
         <main className="px-4 py-8 sm:px-6 lg:px-8">
-          {children}
+          <Outlet />
         </main>
       </div>
     </div>
@@ -89,6 +89,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
 const SidebarContent: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAdminAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/admin/auth/login');
+  };
 
   return (
     <div className="flex flex-1 flex-col">
@@ -125,13 +132,28 @@ const SidebarContent: React.FC = () => {
       </nav>
 
       {/* Footer */}
-      <div className="flex-shrink-0 border-t border-gray-200 p-4">
+      <div className="flex-shrink-0 border-t border-gray-200 p-4 space-y-3">
+        {user && (
+          <div className="text-xs text-gray-600">
+            <p className="font-medium">{user.name || user.email}</p>
+            <p className="text-gray-500">{user.role}</p>
+          </div>
+        )}
+        <Button
+          onClick={handleLogout}
+          variant="outline"
+          size="sm"
+          className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Logout
+        </Button>
         <p className="text-xs text-gray-500">
-          © 2024 Deporte+ Club
+          © 2025 Deporte+ Club
         </p>
       </div>
     </div>
   );
 };
 
-export default Layout;
+export default AdminLayout;

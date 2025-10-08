@@ -1,37 +1,53 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { admin } from '@/lib/supabase';
-import type { UserWithSubscription } from '@/lib/supabase';
-import { Mail, Calendar, CreditCard } from 'lucide-react';
+import { fetchUsers, searchUsers, type User } from '@/lib/admin-api';
+import { Mail, Calendar, CreditCard, Search } from 'lucide-react';
 
-const Users: React.FC = () => {
-  const [users, setUsers] = useState<UserWithSubscription[]>([]);
+const UserManagement: React.FC = () => {
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const allUsers = await admin.getAllUsers();
-        setUsers(allUsers);
-      } catch (error) {
-        console.error('Error fetching users:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUsers();
+    loadUsers();
   }, []);
 
-  const getStatusColor = (isActive: boolean) => {
-    return isActive
+  const loadUsers = async () => {
+    try {
+      const data = await fetchUsers();
+      setUsers(data);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSearch = async (query: string) => {
+    setSearchQuery(query);
+    if (query.trim() === '') {
+      loadUsers();
+      return;
+    }
+
+    try {
+      const data = await searchUsers(query);
+      setUsers(data);
+    } catch (error) {
+      console.error('Error searching users:', error);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    return status === 'active'
       ? 'bg-green-100 text-green-800'
       : 'bg-gray-100 text-gray-800';
   };
 
-  const getStatusText = (isActive: boolean) => {
-    return isActive ? 'Activa' : 'Inactiva';
+  const getStatusText = (status: string) => {
+    return status === 'active' ? 'Active' : 'Inactive';
   };
 
   if (loading) {
@@ -46,10 +62,22 @@ const Users: React.FC = () => {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">Usuarios</h2>
+        <h2 className="text-3xl font-bold tracking-tight">User Management</h2>
         <p className="text-muted-foreground">
-          Gestión de usuarios registrados ({users.length} total)
+          Manage registered users ({users.length} total)
         </p>
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+        <Input
+          type="text"
+          placeholder="Search by email or name..."
+          value={searchQuery}
+          onChange={(e) => handleSearch(e.target.value)}
+          className="pl-10"
+        />
       </div>
 
       {/* Users Grid */}
@@ -59,10 +87,10 @@ const Users: React.FC = () => {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">
-                  {user.name || 'Sin nombre'}
+                  {user.name || 'No name'}
                 </CardTitle>
-                <Badge className={getStatusColor(user.is_active_subscriber)}>
-                  {getStatusText(user.is_active_subscriber)}
+                <Badge className={getStatusColor(user.subscription_status)}>
+                  {getStatusText(user.subscription_status)}
                 </Badge>
               </div>
               <CardDescription className="flex items-center">
@@ -73,31 +101,37 @@ const Users: React.FC = () => {
             <CardContent className="space-y-3">
               <div className="flex items-center text-sm text-gray-600">
                 <Calendar className="w-4 h-4 mr-2" />
-                Registrado: {new Date(user.created_at).toLocaleDateString('es-ES')}
+                Registered: {new Date(user.created_at).toLocaleDateString('en-US')}
               </div>
 
-              {user.is_active_subscriber && user.subscription_started_at && (
+              {user.subscription_status === 'active' && (
                 <div className="flex items-center text-sm text-green-600">
                   <CreditCard className="w-4 h-4 mr-2" />
-                  Suscriptor desde: {new Date(user.subscription_started_at).toLocaleDateString('es-ES')}
+                  Active Subscriber
                 </div>
               )}
 
               {user.phone && (
                 <div className="text-sm text-gray-600">
-                  <strong>Teléfono:</strong> {user.phone}
+                  <strong>Phone:</strong> {user.phone}
                 </div>
               )}
 
               {user.country && (
                 <div className="text-sm text-gray-600">
-                  <strong>País:</strong> {user.country}
+                  <strong>Country:</strong> {user.country}
                 </div>
               )}
 
               {user.stripe_customer_id && (
                 <div className="text-xs text-gray-500">
                   <strong>Stripe ID:</strong> {user.stripe_customer_id.slice(0, 20)}...
+                </div>
+              )}
+
+              {user.last_active_at && (
+                <div className="text-xs text-gray-500">
+                  Last active: {new Date(user.last_active_at).toLocaleDateString('en-US')}
                 </div>
               )}
             </CardContent>
@@ -110,7 +144,7 @@ const Users: React.FC = () => {
           <CardContent className="py-8">
             <div className="text-center text-gray-500">
               <Mail className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-              <p>No hay usuarios registrados aún.</p>
+              <p>No users found.</p>
             </div>
           </CardContent>
         </Card>
@@ -119,4 +153,4 @@ const Users: React.FC = () => {
   );
 };
 
-export default Users;
+export default UserManagement;
