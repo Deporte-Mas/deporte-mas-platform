@@ -386,6 +386,67 @@ export async function deleteVideo(id: string): Promise<void> {
   }
 }
 
+export interface VideoUploadInitResponse {
+  video_id: string;
+  upload_url: string;
+  upload_id: string;
+  video: Video;
+}
+
+export async function initializeVideoUpload(videoData: {
+  title: string;
+  description?: string;
+  is_public?: boolean;
+  requires_subscription?: boolean;
+}): Promise<VideoUploadInitResponse> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Not authenticated');
+
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-upload-video`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(videoData),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to initialize upload');
+    }
+
+    const result = await response.json();
+    return result.data;
+  } catch (error) {
+    console.error('Error initializing video upload:', error);
+    throw error;
+  }
+}
+
+export async function uploadVideoFile(uploadUrl: string, file: File): Promise<void> {
+  try {
+    const response = await fetch(uploadUrl, {
+      method: 'PUT',
+      body: file,
+      headers: {
+        'Content-Type': file.type || 'application/octet-stream',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to upload video file');
+    }
+  } catch (error) {
+    console.error('Error uploading video file:', error);
+    throw error;
+  }
+}
+
 // ============================================================================
 // STREAMS
 // ============================================================================

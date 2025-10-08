@@ -321,9 +321,79 @@ export class MuxService {
 // Video Processing Service
 export class VideoProcessingService {
   private mux: MuxService;
+  private supabaseUrl: string;
+  private supabaseKey: string;
 
   constructor() {
     this.mux = new MuxService();
+    this.supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    this.supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+  }
+
+  /**
+   * Get Supabase client with service role key for webhook operations
+   */
+  private getSupabaseClient() {
+    // Dynamic import to avoid circular dependencies
+    // Using service role key for webhook operations
+    return {
+      from: (table: string) => ({
+        update: async (data: any) => ({
+          eq: (column: string, value: any) => {
+            return this.executeQuery('UPDATE', table, data, column, value);
+          }
+        }),
+        insert: async (data: any) => ({
+          select: () => ({
+            single: async () => {
+              return this.executeQuery('INSERT', table, data);
+            }
+          })
+        })
+      })
+    };
+  }
+
+  /**
+   * Execute Supabase query using REST API
+   */
+  private async executeQuery(
+    method: string,
+    table: string,
+    data: any,
+    filterColumn?: string,
+    filterValue?: any
+  ): Promise<{ data: any; error: any }> {
+    try {
+      let url = `${this.supabaseUrl}/rest/v1/${table}`;
+      let fetchMethod = 'POST';
+
+      if (method === 'UPDATE' && filterColumn && filterValue) {
+        url += `?${filterColumn}=eq.${filterValue}`;
+        fetchMethod = 'PATCH';
+      }
+
+      const response = await fetch(url, {
+        method: fetchMethod,
+        headers: {
+          'apikey': this.supabaseKey,
+          'Authorization': `Bearer ${this.supabaseKey}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify(data)
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        return { data: null, error: new Error(error) };
+      }
+
+      const result = await response.json();
+      return { data: result, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
   }
 
   /**
@@ -401,27 +471,147 @@ export class VideoProcessingService {
 
   private async handleAssetReady(asset: MuxAsset): Promise<void> {
     console.log(`Mux asset ready: ${asset.id}`);
-    // Implementation would update content table with ready status
+
+    try {
+      const playbackId = asset.playback_ids?.[0]?.id || '';
+      const duration = Math.floor(asset.duration || 0);
+
+      // Generate thumbnail URL
+      const thumbnailUrl = playbackId
+        ? this.mux.getThumbnailUrl(playbackId, { width: 1280, height: 720, time: 1 })
+        : null;
+
+      // Update video record with ready status
+      const { error } = await this.executeQuery(
+        'UPDATE',
+        'videos',
+        {
+          status: 'ready',
+          mux_playback_id: playbackId,
+          duration: duration,
+          thumbnail_url: thumbnailUrl,
+          updated_at: new Date().toISOString()
+        },
+        'mux_asset_id',
+        asset.id
+      );
+
+      if (error) {
+        console.error('Failed to update video record:', error);
+      } else {
+        console.log(`Video ${asset.id} marked as ready with playback_id ${playbackId}`);
+      }
+    } catch (error) {
+      console.error('Error handling asset ready:', error);
+    }
   }
 
   private async handleAssetError(asset: MuxAsset): Promise<void> {
     console.error(`Mux asset error: ${asset.id}`);
-    // Implementation would update content table with error status
+
+    try {
+      // Update video record with error status
+      const { error } = await this.executeQuery(
+        'UPDATE',
+        'videos',
+        {
+          status: 'error',
+          updated_at: new Date().toISOString()
+        },
+        'mux_asset_id',
+        asset.id
+      );
+
+      if (error) {
+        console.error('Failed to update video record with error status:', error);
+      } else {
+        console.log(`Video ${asset.id} marked as error`);
+      }
+    } catch (error) {
+      console.error('Error handling asset error:', error);
+    }
   }
 
   private async handleUploadAssetCreated(asset: MuxAsset): Promise<void> {
     console.log(`Mux upload asset created: ${asset.id}`);
-    // Implementation would link upload to content record
+
+    try {
+      // Update video record to link mux_asset_id
+      // This happens when an upload is created and Mux has created the asset
+      const { error } = await this.executeQuery(
+        'UPDATE',
+        'videos',
+        {
+          mux_asset_id: asset.id,
+          status: 'processing',
+          updated_at: new Date().toISOString()
+        },
+        'mux_asset_id',
+        asset.id
+      );
+
+      if (error) {
+        console.error('Failed to link upload to video record:', error);
+      } else {
+        console.log(`Upload linked to video for asset ${asset.id}`);
+      }
+    } catch (error) {
+      console.error('Error handling upload asset created:', error);
+    }
   }
 
   private async handleLiveStreamConnected(stream: MuxLiveStream): Promise<void> {
     console.log(`Live stream connected: ${stream.id}`);
-    // Implementation would update stream status to 'live'
+
+    try {
+      // Update stream status to 'live'
+      const { error } = await this.executeQuery(
+        'UPDATE',
+        'streams',
+        {
+          status: 'live',
+          actual_start: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        },
+        'mux_asset_id',
+        stream.id
+      );
+
+      if (error) {
+        console.error('Failed to update stream to live:', error);
+      } else {
+        console.log(`Stream ${stream.id} is now live`);
+      }
+    } catch (error) {
+      console.error('Error handling live stream connected:', error);
+    }
   }
 
   private async handleLiveStreamDisconnected(stream: MuxLiveStream): Promise<void> {
     console.log(`Live stream disconnected: ${stream.id}`);
-    // Implementation would update stream status to 'ended'
+
+    try {
+      // Update stream status to 'ended'
+      const { error } = await this.executeQuery(
+        'UPDATE',
+        'streams',
+        {
+          status: 'ended',
+          actual_end: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        },
+        'mux_asset_id',
+        stream.id
+      );
+
+      if (error) {
+        console.error('Failed to update stream to ended:', error);
+      } else {
+        console.log(`Stream ${stream.id} has ended`);
+      }
+    } catch (error) {
+      console.error('Error handling live stream disconnected:', error);
+    }
   }
 }
 
