@@ -178,6 +178,13 @@ export async function requireRole(
 ): Promise<boolean> {
   const { user, supabase } = context;
 
+  // Dev mode bypass for local development
+  const isDev = Deno.env.get('VITE_DEV_MODE') === 'true';
+  if (isDev && user.id === 'dev-admin') {
+    console.log('⚠️ DEV MODE: Bypassing admin role check for dev-admin');
+    return true;
+  }
+
   // Check if user exists in admin_users table and is active
   const { data: adminUser, error } = await supabase
     .from('admin_users')
