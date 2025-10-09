@@ -86,6 +86,3 @@ USING (
 -- ✅ Public viewing access for all thumbnails
 -- ✅ Admin-only upload/update/delete access (using admin_users table)
 -- ✅ Restricted to image file types only
-
-COMMENT ON POLICY "Admins can upload thumbnails" ON storage.objects IS
-  'Uses admin_users table (separate from regular users table)';
