@@ -26,14 +26,20 @@ ON CONFLICT (id) DO UPDATE SET
 -- 2. RLS POLICIES FOR THUMBNAILS
 -- ============================================================================
 
+-- Drop existing policies if they exist (idempotent)
+DROP POLICY IF EXISTS "Thumbnails are publicly viewable" ON storage.objects;
+DROP POLICY IF EXISTS "Admins can upload thumbnails" ON storage.objects;
+DROP POLICY IF EXISTS "Admins can update thumbnails" ON storage.objects;
+DROP POLICY IF EXISTS "Admins can delete thumbnails" ON storage.objects;
+
 -- Allow public SELECT (viewing) of thumbnails
-CREATE POLICY IF NOT EXISTS "Thumbnails are publicly viewable"
+CREATE POLICY "Thumbnails are publicly viewable"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'thumbnails');
 
 -- Allow authenticated admins to INSERT thumbnails
 -- NOTE: Using admin_users table (separate from regular users)
-CREATE POLICY IF NOT EXISTS "Admins can upload thumbnails"
+CREATE POLICY "Admins can upload thumbnails"
 ON storage.objects FOR INSERT
 WITH CHECK (
   bucket_id = 'thumbnails' AND
@@ -46,7 +52,7 @@ WITH CHECK (
 );
 
 -- Allow authenticated admins to UPDATE thumbnails (replace)
-CREATE POLICY IF NOT EXISTS "Admins can update thumbnails"
+CREATE POLICY "Admins can update thumbnails"
 ON storage.objects FOR UPDATE
 USING (
   bucket_id = 'thumbnails' AND
@@ -59,7 +65,7 @@ USING (
 );
 
 -- Allow authenticated admins to DELETE thumbnails
-CREATE POLICY IF NOT EXISTS "Admins can delete thumbnails"
+CREATE POLICY "Admins can delete thumbnails"
 ON storage.objects FOR DELETE
 USING (
   bucket_id = 'thumbnails' AND
