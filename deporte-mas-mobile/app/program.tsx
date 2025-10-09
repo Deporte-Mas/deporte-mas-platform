@@ -7,16 +7,17 @@ import {
   Dimensions,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { Video, ResizeMode } from "expo-av";
 import { useRef } from "react";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { MuxPlayer } from "../components/MuxPlayer";
 
 const { width: screenWidth } = Dimensions.get("window");
 
 export default function Program() {
-  const videoRef = useRef<Video>(null);
+  // Asset ID de ejemplo - reemplaza con tu ID real de Mux
+  const PROGRAM_VIDEO_ASSET_ID = "your-program-video-asset-id";
 
   return (
     <LinearGradient
@@ -48,14 +49,16 @@ export default function Program() {
 
         {/* Video Player */}
         <View style={styles.videoContainer}>
-          <Video
-            ref={videoRef}
-            source={require("../assets/images/example.mp4")}
+          <MuxPlayer
+            assetId={PROGRAM_VIDEO_ASSET_ID}
             style={styles.video}
-            useNativeControls
-            resizeMode={ResizeMode.CONTAIN}
-            isLooping
-            shouldPlay
+            autoplay={false}
+            muted={false}
+            loop={false}
+            controls={true}
+            resizeMode="contain"
+            onLoad={() => console.log('Program video loaded')}
+            onError={(error) => console.error('Program video error:', error)}
           />
         </View>
 

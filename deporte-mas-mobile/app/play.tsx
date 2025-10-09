@@ -7,15 +7,34 @@ import {
   ScrollView,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { Video, ResizeMode } from "expo-av";
 import { useRef } from "react";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { MuxThumbnail } from "../components/MuxThumbnail";
 
 const { width: screenWidth } = Dimensions.get("window");
 
 export default function Play() {
+  // Asset IDs de ejemplo - reemplaza con tus IDs reales de Mux
+  const PROGRAMAS_ANTERIORES = [
+    { id: "programa-1-asset-id", title: "Programa 01/10/25", duration: "45:30" },
+    { id: "programa-2-asset-id", title: "Programa 30/09/25", duration: "42:15" },
+    { id: "programa-3-asset-id", title: "Programa 29/09/25", duration: "38:45" },
+  ];
+
+  const NACIONALES = [
+    { id: "nacional-1-asset-id", title: "Liga MX - Jornada 12", duration: "35:20" },
+    { id: "nacional-2-asset-id", title: "Liga MX - Jornada 11", duration: "40:10" },
+    { id: "nacional-3-asset-id", title: "Liga MX - Jornada 10", duration: "37:55" },
+  ];
+
+  const INTERNACIONALES = [
+    { id: "internacional-1-asset-id", title: "Premier League - Matchday 8", duration: "43:25" },
+    { id: "internacional-2-asset-id", title: "LaLiga - Jornada 9", duration: "39:40" },
+    { id: "internacional-3-asset-id", title: "Serie A - Matchday 7", duration: "41:15" },
+  ];
+
   return (
     <LinearGradient
       colors={["#010017", "#06007D"]}
@@ -49,9 +68,16 @@ export default function Play() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Programas anteriores</Text>
           <View style={styles.videoGrid}>
-            <VideoThumbnail />
-            <VideoThumbnail />
-            <VideoThumbnail />
+            {PROGRAMAS_ANTERIORES.map((video, index) => (
+              <MuxThumbnail
+                key={index}
+                assetId={video.id}
+                style={styles.videoContainer}
+                onPress={() => router.push("/program")}
+                title={video.title}
+                duration={video.duration}
+              />
+            ))}
           </View>
         </View>
 
@@ -59,9 +85,16 @@ export default function Play() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Nacionales</Text>
           <View style={styles.videoGrid}>
-            <VideoThumbnail />
-            <VideoThumbnail />
-            <VideoThumbnail />
+            {NACIONALES.map((video, index) => (
+              <MuxThumbnail
+                key={index}
+                assetId={video.id}
+                style={styles.videoContainer}
+                onPress={() => router.push("/program")}
+                title={video.title}
+                duration={video.duration}
+              />
+            ))}
           </View>
         </View>
 
@@ -69,9 +102,16 @@ export default function Play() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Internacionales</Text>
           <View style={styles.videoGrid}>
-            <VideoThumbnail />
-            <VideoThumbnail />
-            <VideoThumbnail />
+            {INTERNACIONALES.map((video, index) => (
+              <MuxThumbnail
+                key={index}
+                assetId={video.id}
+                style={styles.videoContainer}
+                onPress={() => router.push("/program")}
+                title={video.title}
+                duration={video.duration}
+              />
+            ))}
           </View>
         </View>
 
@@ -104,29 +144,6 @@ export default function Play() {
   );
 }
 
-function VideoThumbnail() {
-  const videoRef = useRef<Video>(null);
-
-  return (
-    <TouchableOpacity
-      style={styles.videoContainer}
-      onPress={() => router.push("/program")}
-    >
-      <Video
-        ref={videoRef}
-        source={require("../assets/images/example.mp4")}
-        style={styles.video}
-        resizeMode={ResizeMode.COVER}
-        isLooping
-        shouldPlay
-        isMuted
-      />
-      <View style={styles.playOverlay}>
-        <Ionicons name="play" size={40} color="white" style={styles.playIcon} />
-      </View>
-    </TouchableOpacity>
-  );
-}
 
 const styles = StyleSheet.create({
   container: {
