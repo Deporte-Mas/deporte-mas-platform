@@ -59,26 +59,7 @@ serve(async (req) => {
         return createErrorResponse('Title is required', 400, 'INVALID_REQUEST');
       }
 
-      // Create Mux direct upload
-      const muxService = new MuxService();
-      const upload = await muxService.createDirectUpload({
-        cors_origin: Deno.env.get('FRONTEND_URL') || '*',
-        new_asset_settings: {
-          playback_policy: ['public'],
-          video_quality: 'plus',
-          test: Deno.env.get('VITE_DEV_MODE') === 'true'
-        }
-      });
-
-      if (!upload) {
-        return createErrorResponse(
-          'Failed to create Mux upload',
-          500,
-          'MUX_UPLOAD_FAILED'
-        );
-      }
-
-      // Create video record in database with 'uploading' status
+      // Create video record in database FIRST with 'uploading' status
       const { data: video, error: videoError } = await supabase
         .from('videos')
         .insert({
@@ -98,6 +79,30 @@ serve(async (req) => {
           'Failed to create video record',
           500,
           'VIDEO_CREATION_FAILED'
+        );
+      }
+
+      // Create Mux direct upload with passthrough for linking
+      const muxService = new MuxService();
+      const upload = await muxService.createDirectUpload({
+        cors_origin: Deno.env.get('FRONTEND_URL') || '*',
+        new_asset_settings: {
+          playback_policy: ['public'],
+          video_quality: 'plus',
+          test: Deno.env.get('VITE_DEV_MODE') === 'true',
+          passthrough: video.id,  // Pass video.id for webhook linking
+          meta: {
+            external_id: video.id,  // Additional metadata for tracking
+            title: body.title.trim()
+          }
+        }
+      });
+
+      if (!upload) {
+        return createErrorResponse(
+          'Failed to create Mux upload',
+          500,
+          'MUX_UPLOAD_FAILED'
         );
       }
 

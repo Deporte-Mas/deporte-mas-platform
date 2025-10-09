@@ -68,12 +68,34 @@ serve(async (req) => {
       // Generate unique stream key
       const streamKey = generateStreamKey();
 
-      // Create Mux live stream
+      // Create stream record in database FIRST
+      const { data: stream, error: streamError } = await supabase
+        .from('streams')
+        .insert({
+          title: streamData.title,
+          description: streamData.description,
+          scheduled_start: streamData.scheduled_start,
+          status: 'scheduled',
+          stream_key: streamKey,
+          panelists: streamData.panelists,
+          category: streamData.category,
+          topics: streamData.topics || []
+        })
+        .select()
+        .single();
+
+      if (streamError) {
+        console.error('Failed to create stream record:', streamError);
+        return createErrorResponse('Failed to create stream', 500, 'STREAM_CREATION_FAILED');
+      }
+
+      // Create Mux live stream with passthrough for webhook linking
       const muxService = new MuxService();
       const muxStream = await muxService.createLiveStream({
         playbook_policy: ['public'],
         new_asset_settings: {
-          playback_policy: ['public']
+          playback_policy: ['public'],
+          passthrough: stream.id  // Pass stream.id for webhook linking
         }
       });
 
@@ -87,30 +109,16 @@ serve(async (req) => {
         playbackId = muxStream.playback_ids?.[0]?.id || '';
         rtmpUrl = muxStream.rtmp?.url || '';
         playbackUrl = playbackId ? `https://stream.mux.com/${playbackId}.m3u8` : '';
-      }
 
-      // Create stream record in database
-      const { data: stream, error: streamError } = await supabase
-        .from('streams')
-        .insert({
-          title: streamData.title,
-          description: streamData.description,
-          scheduled_start: streamData.scheduled_start,
-          status: 'scheduled',
-          stream_key: streamKey,
-          rtmp_url: rtmpUrl,
-          playback_url: playbackUrl,
-          panelists: streamData.panelists,
-          category: streamData.category,
-          topics: streamData.topics || [],
-          mux_asset_id: muxStreamId
-        })
-        .select()
-        .single();
-
-      if (streamError) {
-        console.error('Failed to create stream record:', streamError);
-        return createErrorResponse('Failed to create stream', 500, 'STREAM_CREATION_FAILED');
+        // Update stream record with Mux details
+        await supabase
+          .from('streams')
+          .update({
+            rtmp_url: rtmpUrl,
+            playback_url: playbackUrl,
+            mux_asset_id: muxStreamId
+          })
+          .eq('id', stream.id);
       }
 
       // Record admin action

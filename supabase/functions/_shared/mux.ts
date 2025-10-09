@@ -11,6 +11,12 @@ export interface MuxUploadRequest {
     playback_policy: string[];
     video_quality: string;
     test?: boolean;
+    passthrough?: string;
+    meta?: {
+      external_id?: string;
+      title?: string;
+      creator_id?: string;
+    };
   };
 }
 
@@ -34,6 +40,12 @@ export interface MuxAsset {
     url: string;
   };
   tracks?: any[];
+  passthrough?: string;
+  meta?: {
+    external_id?: string;
+    title?: string;
+    creator_id?: string;
+  };
 }
 
 export interface MuxLiveStream {
@@ -47,6 +59,8 @@ export interface MuxLiveStream {
     policy: string;
   }>;
   status: string;
+  asset_id?: string;
+  passthrough?: string;
 }
 
 export interface MuxWebhookEvent {
@@ -536,8 +550,18 @@ export class VideoProcessingService {
     console.log(`Mux upload asset created: ${asset.id}`);
 
     try {
+      // Extract video_id from passthrough or meta.external_id
+      const videoId = asset.passthrough || asset.meta?.external_id;
+
+      if (!videoId) {
+        console.error('No passthrough or external_id found on asset - cannot link to video');
+        console.error('Asset data:', JSON.stringify(asset, null, 2));
+        return;
+      }
+
+      console.log(`Linking asset ${asset.id} to video ${videoId}`);
+
       // Update video record to link mux_asset_id
-      // This happens when an upload is created and Mux has created the asset
       const { error } = await this.executeQuery(
         'UPDATE',
         'videos',
@@ -546,14 +570,14 @@ export class VideoProcessingService {
           status: 'processing',
           updated_at: new Date().toISOString()
         },
-        'mux_asset_id',
-        asset.id
+        'id',  // Use video.id (from passthrough) instead of mux_asset_id
+        videoId
       );
 
       if (error) {
         console.error('Failed to link upload to video record:', error);
       } else {
-        console.log(`Upload linked to video for asset ${asset.id}`);
+        console.log(`Upload linked to video ${videoId} for asset ${asset.id}`);
       }
     } catch (error) {
       console.error('Error handling upload asset created:', error);
@@ -564,6 +588,14 @@ export class VideoProcessingService {
     console.log(`Live stream connected: ${stream.id}`);
 
     try {
+      // Extract stream_id from passthrough (if admin created stream with metadata)
+      const streamId = stream.passthrough;
+
+      if (!streamId) {
+        console.warn('No passthrough found on livestream - cannot update stream record');
+        return;
+      }
+
       // Update stream status to 'live'
       const { error } = await this.executeQuery(
         'UPDATE',
@@ -571,16 +603,17 @@ export class VideoProcessingService {
         {
           status: 'live',
           actual_start: new Date().toISOString(),
+          mux_asset_id: stream.id,  // Store Mux livestream ID
           updated_at: new Date().toISOString()
         },
-        'mux_asset_id',
-        stream.id
+        'id',  // Use our streams.id (from passthrough)
+        streamId
       );
 
       if (error) {
         console.error('Failed to update stream to live:', error);
       } else {
-        console.log(`Stream ${stream.id} is now live`);
+        console.log(`Stream ${streamId} is now live (Mux: ${stream.id})`);
       }
     } catch (error) {
       console.error('Error handling live stream connected:', error);
@@ -591,23 +624,82 @@ export class VideoProcessingService {
     console.log(`Live stream disconnected: ${stream.id}`);
 
     try {
+      // Extract stream_id from passthrough
+      const streamId = stream.passthrough;
+
+      if (!streamId) {
+        console.warn('No passthrough found on livestream - cannot update stream record');
+        return;
+      }
+
       // Update stream status to 'ended'
-      const { error } = await this.executeQuery(
+      const { data: streamData, error: streamError } = await this.executeQuery(
         'UPDATE',
         'streams',
         {
           status: 'ended',
           actual_end: new Date().toISOString(),
+          vod_available: !!stream.asset_id,  // VOD is available if asset_id exists
+          mux_asset_id: stream.id,  // Store Mux livestream ID
           updated_at: new Date().toISOString()
         },
-        'mux_asset_id',
-        stream.id
+        'id',  // Use our streams.id (from passthrough)
+        streamId
       );
 
-      if (error) {
-        console.error('Failed to update stream to ended:', error);
+      if (streamError) {
+        console.error('Failed to update stream to ended:', streamError);
+        return;
+      }
+
+      console.log(`Stream ${streamId} has ended (Mux: ${stream.id})`);
+
+      // Create video record from livestream VOD if asset_id is available
+      if (stream.asset_id) {
+        console.log(`Creating video record from livestream VOD asset ${stream.asset_id}`);
+
+        // Get the stream record to get title and other details
+        const streamRecord = Array.isArray(streamData) ? streamData[0] : streamData;
+
+        // Fetch asset details from Mux to get playback_id and duration
+        const asset = await this.mux.getAsset(stream.asset_id);
+
+        if (asset) {
+          const playbackId = asset.playback_ids?.[0]?.id || '';
+          const duration = Math.floor(asset.duration || 0);
+          const thumbnailUrl = playbackId
+            ? this.mux.getThumbnailUrl(playbackId, { width: 1280, height: 720, time: 1 })
+            : null;
+
+          // Create video record linked to this stream
+          const { error: videoError } = await this.executeQuery(
+            'INSERT',
+            'videos',
+            {
+              title: `${streamRecord?.title || 'Livestream'} (Recording)`,
+              description: streamRecord?.description || null,
+              thumbnail_url: thumbnailUrl,
+              mux_asset_id: stream.asset_id,
+              mux_playback_id: playbackId,
+              duration: duration,
+              status: asset.status === 'ready' ? 'ready' : 'processing',
+              is_public: false,
+              requires_subscription: true,
+              stream_id: streamRecord?.id || null,
+              source_type: 'livestream_vod'
+            }
+          );
+
+          if (videoError) {
+            console.error('Failed to create video from livestream VOD:', videoError);
+          } else {
+            console.log(`Created video record for livestream VOD asset ${stream.asset_id}`);
+          }
+        } else {
+          console.warn(`Could not fetch asset details for ${stream.asset_id}`);
+        }
       } else {
-        console.log(`Stream ${stream.id} has ended`);
+        console.log('No asset_id provided - VOD may not be available yet');
       }
     } catch (error) {
       console.error('Error handling live stream disconnected:', error);

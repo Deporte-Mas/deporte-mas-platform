@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { fetchVideos, initializeVideoUpload, uploadVideoFile, type Video } from '@/lib/admin-api';
-import { Video as VideoIcon, Plus, Upload, Clock, CheckCircle, AlertCircle, Loader2, Play, Trash2 } from 'lucide-react';
+import { Video as VideoIcon, Plus, Upload, Clock, CheckCircle, AlertCircle, Loader2, Play, Trash2, Radio, Link as LinkIcon } from 'lucide-react';
 
 const VideoManagement: React.FC = () => {
   const [videos, setVideos] = useState<Video[]>([]);
@@ -134,6 +134,33 @@ const VideoManagement: React.FC = () => {
         );
       default:
         return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
+  const getSourceTypeBadge = (sourceType?: string) => {
+    switch (sourceType) {
+      case 'livestream_vod':
+        return (
+          <Badge variant="outline" className="text-xs">
+            <Radio className="w-3 h-3 mr-1" />
+            Livestream VOD
+          </Badge>
+        );
+      case 'external':
+        return (
+          <Badge variant="outline" className="text-xs">
+            <LinkIcon className="w-3 h-3 mr-1" />
+            External
+          </Badge>
+        );
+      case 'upload':
+      default:
+        return (
+          <Badge variant="outline" className="text-xs">
+            <Upload className="w-3 h-3 mr-1" />
+            Upload
+          </Badge>
+        );
     }
   };
 
@@ -295,11 +322,14 @@ const VideoManagement: React.FC = () => {
                 <span>{video.view_count} views</span>
               </div>
 
-              {video.requires_subscription && (
-                <Badge variant="outline" className="w-full justify-center">
-                  Requires Subscription
-                </Badge>
-              )}
+              <div className="flex flex-wrap gap-2">
+                {getSourceTypeBadge(video.source_type)}
+                {video.requires_subscription && (
+                  <Badge variant="outline" className="text-xs">
+                    Requires Subscription
+                  </Badge>
+                )}
+              </div>
 
               {video.mux_playback_id && (
                 <div className="text-xs text-gray-500">
@@ -337,7 +367,7 @@ const VideoManagement: React.FC = () => {
             <div className="text-center text-gray-500">
               <VideoIcon className="w-12 h-12 mx-auto mb-4 text-gray-300" />
               <p className="mb-4">No videos yet. Upload your first video!</p>
-              <Button>
+              <Button onClick={() => setUploadDialogOpen(true)}>
                 <Upload className="mr-2 h-4 w-4" />
                 Upload Video
               </Button>
