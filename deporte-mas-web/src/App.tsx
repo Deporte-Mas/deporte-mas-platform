@@ -17,6 +17,7 @@ import AdminAuthVerify from "./pages/admin/AdminAuthVerify";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import UserManagement from "./pages/admin/UserManagement";
 import CourseManagement from "./pages/admin/CourseManagement";
+import CourseDetail from "./pages/admin/CourseDetail";
 import VideoManagement from "./pages/admin/VideoManagement";
 import LivestreamManagement from "./pages/admin/LivestreamManagement";
 
@@ -49,6 +50,7 @@ const App = () => (
                   <Route index element={<AdminDashboard />} />
                   <Route path="users" element={<UserManagement />} />
                   <Route path="courses" element={<CourseManagement />} />
+                  <Route path="courses/:courseId" element={<CourseDetail />} />
                   <Route path="videos" element={<VideoManagement />} />
                   <Route path="livestreams" element={<LivestreamManagement />} />
                 </Route>

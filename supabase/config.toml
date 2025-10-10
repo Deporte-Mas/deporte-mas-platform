@@ -184,19 +184,24 @@ verify_jwt = true
 [functions.validate-session]
 verify_jwt = true
 
-# Admin functions (require authentication)
-[functions.admin-stats]
-verify_jwt = true
+# Admin auth functions (handle their own authentication via magic links/sessions)
+[functions.admin-magic-link]
+verify_jwt = false  # Public endpoint for admin login
 
-[functions.admin-create-course]
-verify_jwt = true
+[functions.admin-verify-token]
+verify_jwt = false  # Verifies magic link token
 
+[functions.admin-verify-session]
+verify_jwt = false  # Verifies admin session
+
+[functions.admin-logout]
+verify_jwt = false  # Invalidates admin session
+
+# Admin protected functions (require authentication via withAuth)
 [functions.admin-upload-video]
 verify_jwt = true
 
-[functions.admin-create-stream]
-verify_jwt = true
-
+# Webhook endpoints (external services, verify with webhook secrets)
 [functions.mux-webhook]
 verify_jwt = false  # Called by Mux servers with webhook secret
 

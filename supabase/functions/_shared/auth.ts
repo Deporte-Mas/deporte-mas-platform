@@ -170,6 +170,36 @@ export async function requireActiveSubscription(
 }
 
 /**
+ * Checks if user has admin role via admin_users table
+ */
+export async function requireRole(
+  context: AuthContext,
+  role: 'admin'
+): Promise<boolean> {
+  const { user, supabase } = context;
+
+  // Dev mode bypass for local development
+  const isDev = Deno.env.get('VITE_DEV_MODE') === 'true';
+  if (isDev && user.id === 'dev-admin') {
+    console.log('⚠️ DEV MODE: Bypassing admin role check for dev-admin');
+    return true;
+  }
+
+  // Check if user exists in admin_users table and is active
+  const { data: adminUser, error } = await supabase
+    .from('admin_users')
+    .select('id, is_active')
+    .eq('id', user.id)
+    .single();
+
+  if (error || !adminUser || !adminUser.is_active) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
  * Rate limiting helper (basic implementation)
  */
 const rateLimitMap = new Map<string, number[]>();

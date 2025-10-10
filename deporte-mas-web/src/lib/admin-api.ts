@@ -21,9 +21,9 @@ export interface User {
   phone?: string;
   country?: string;
   stripe_customer_id?: string;
-  subscription_status: string;
   created_at: string;
   last_active_at?: string;
+  // Note: subscription_status moved to subscription_cache table
 }
 
 export interface Course {
@@ -31,6 +31,9 @@ export interface Course {
   title: string;
   description?: string;
   thumbnail_url?: string;
+  course_type: 'live_show' | 'documentary' | 'miniseries' | 'educational' | 'interactive';
+  host_name?: string;
+  metadata?: Record<string, any>;
   is_published: boolean;
   requires_subscription: boolean;
   display_order: number;
@@ -45,8 +48,13 @@ export interface CourseModule {
   course_id: string;
   title: string;
   description?: string;
+  thumbnail_url?: string;
+  content_text?: string;
+  video_id?: string;
+  aired_at?: string;
   order_index: number;
   created_at: string;
+  updated_at: string;
 }
 
 export interface CourseLesson {
@@ -72,6 +80,7 @@ export interface Video {
   requires_subscription: boolean;
   view_count: number;
   stream_id?: string;
+  source_type?: 'upload' | 'livestream_vod' | 'external';
   created_at: string;
   updated_at: string;
 }
@@ -94,6 +103,7 @@ export interface Stream {
   peak_viewers: number;
   total_viewers: number;
   category?: string;
+  course_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -109,11 +119,12 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
       .from('users')
       .select('*', { count: 'exact', head: true });
 
-    // Get active subscriptions
+    // Get active subscriptions (from subscription_cache table)
     const { count: activeSubscriptions } = await supabase
-      .from('users')
+      .from('subscription_cache')
       .select('*', { count: 'exact', head: true })
-      .eq('subscription_status', 'active');
+      .in('status', ['active', 'trialing'])
+      .gte('current_period_end', new Date().toISOString());
 
     // Get total courses
     const { count: totalCourses } = await supabase
@@ -288,6 +299,55 @@ export async function createCourseModule(module: Partial<CourseModule>): Promise
   }
 }
 
+export async function updateCourseModule(id: string, updates: Partial<CourseModule>): Promise<CourseModule> {
+  try {
+    const { data, error } = await supabase
+      .from('course_modules')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error updating course module:', error);
+    throw error;
+  }
+}
+
+export async function deleteCourseModule(id: string): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('course_modules')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error deleting course module:', error);
+    throw error;
+  }
+}
+
+export async function reorderCourseModules(courseId: string, moduleIds: string[]): Promise<void> {
+  try {
+    // Update order_index for each module
+    const updates = moduleIds.map((id, index) =>
+      supabase
+        .from('course_modules')
+        .update({ order_index: index })
+        .eq('id', id)
+        .eq('course_id', courseId)
+    );
+
+    await Promise.all(updates);
+  } catch (error) {
+    console.error('Error reordering course modules:', error);
+    throw error;
+  }
+}
+
 export async function fetchCourseLessons(moduleId: string): Promise<CourseLesson[]> {
   try {
     const { data, error } = await supabase
@@ -382,6 +442,100 @@ export async function deleteVideo(id: string): Promise<void> {
     if (error) throw error;
   } catch (error) {
     console.error('Error deleting video:', error);
+    throw error;
+  }
+}
+
+export interface VideoUploadInitResponse {
+  video_id: string;
+  upload_url: string;
+  upload_id: string;
+  video: Video;
+}
+
+// ============================================================================
+// STORAGE / UPLOADS
+// ============================================================================
+
+export async function uploadThumbnail(file: File): Promise<string> {
+  try {
+    // Generate unique filename
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const filePath = `thumbnails/${fileName}`;
+
+    // Upload to Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from('thumbnails')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    if (uploadError) throw uploadError;
+
+    // Get public URL
+    const { data } = supabase.storage
+      .from('thumbnails')
+      .getPublicUrl(filePath);
+
+    return data.publicUrl;
+  } catch (error) {
+    console.error('Error uploading thumbnail:', error);
+    throw error;
+  }
+}
+
+export async function initializeVideoUpload(videoData: {
+  title: string;
+  description?: string;
+  is_public?: boolean;
+  requires_subscription?: boolean;
+}): Promise<VideoUploadInitResponse> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Not authenticated');
+
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-upload-video`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(videoData),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to initialize upload');
+    }
+
+    const result = await response.json();
+    return result.data;
+  } catch (error) {
+    console.error('Error initializing video upload:', error);
+    throw error;
+  }
+}
+
+export async function uploadVideoFile(uploadUrl: string, file: File): Promise<void> {
+  try {
+    const response = await fetch(uploadUrl, {
+      method: 'PUT',
+      body: file,
+      headers: {
+        'Content-Type': file.type || 'application/octet-stream',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to upload video file');
+    }
+  } catch (error) {
+    console.error('Error uploading video file:', error);
     throw error;
   }
 }
