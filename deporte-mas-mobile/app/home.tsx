@@ -7,20 +7,14 @@ import {
   ScrollView,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { Video, ResizeMode } from "expo-av";
-import { useRef } from "react";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { Config } from "../config";
 
 const { width: screenWidth } = Dimensions.get("window");
 
 export default function Home() {
-  const mainVideoRef = useRef<Video>(null);
-  const video1Ref = useRef<Video>(null);
-  const video2Ref = useRef<Video>(null);
-  const video3Ref = useRef<Video>(null);
-
   return (
     <LinearGradient
       colors={["#010017", "#06007D"]}
@@ -50,77 +44,93 @@ export default function Home() {
           </View>
         </View>
 
-        {/* Main Video Player */}
-        <View style={styles.mainVideoContainer}>
-          <Video
-            ref={mainVideoRef}
-            source={require("../assets/images/example.mp4")}
-            style={styles.mainVideo}
-            useNativeControls
-            resizeMode={ResizeMode.CONTAIN}
-            isLooping
-            shouldPlay
-          />
-        </View>
+        {/* Main Stream Thumbnail */}
+        <TouchableOpacity
+          style={styles.mainVideoContainer}
+          onPress={() =>
+            router.push({
+              pathname: "/stream",
+              params: {
+                playbackId: Config.MUX_PLAYBACK_ID,
+                title: "Transmisión en Vivo - DeporteMás",
+                description: "Partido en vivo con análisis y comentarios",
+                isLive: "true",
+              },
+            })
+          }
+        >
+          <View style={styles.thumbnailMain}>
+            <Ionicons name="play-circle" size={64} color="white" />
+          </View>
+          <View style={styles.liveOverlay}>
+            <View style={styles.liveBadge}>
+              <View style={styles.liveDot} />
+              <Text style={styles.liveText}>EN VIVO</Text>
+            </View>
+          </View>
+        </TouchableOpacity>
 
         {/* Volver a ver Section */}
         <View style={styles.replaySection}>
           <Text style={styles.replayTitle}>Volver a ver</Text>
           <View style={styles.replayGrid}>
-            {/* Video 1 */}
+            {/* Stream 1 */}
             <TouchableOpacity
               style={styles.replayVideoContainer}
-              onPress={() => router.push("/program")}
+              onPress={() =>
+                router.push({
+                  pathname: "/stream",
+                  params: {
+                    playbackId: Config.MUX_PLAYBACK_ID,
+                    title: "Programa 02/10/25",
+                    description: "Revive los mejores momentos del programa",
+                    isLive: "false",
+                  },
+                })
+              }
             >
-              <Video
-                ref={video1Ref}
-                source={require("../assets/images/example.mp4")}
-                style={styles.replayVideo}
-                resizeMode={ResizeMode.COVER}
-                isLooping
-                shouldPlay
-                isMuted
-              />
-              <View style={styles.playOverlay}>
-                <Text style={styles.playIcon}>▶</Text>
+              <View style={styles.thumbnailSmall}>
+                <Ionicons name="play-circle" size={40} color="white" />
               </View>
             </TouchableOpacity>
 
-            {/* Video 2 */}
+            {/* Stream 2 */}
             <TouchableOpacity
               style={styles.replayVideoContainer}
-              onPress={() => router.push("/program")}
+              onPress={() =>
+                router.push({
+                  pathname: "/stream",
+                  params: {
+                    playbackId: Config.MUX_PLAYBACK_ID,
+                    title: "Análisis Deportivo",
+                    description: "Análisis completo de la jornada",
+                    isLive: "false",
+                  },
+                })
+              }
             >
-              <Video
-                ref={video2Ref}
-                source={require("../assets/images/example.mp4")}
-                style={styles.replayVideo}
-                resizeMode={ResizeMode.COVER}
-                isLooping
-                shouldPlay
-                isMuted
-              />
-              <View style={styles.playOverlay}>
-                <Text style={styles.playIcon}>▶</Text>
+              <View style={styles.thumbnailSmall}>
+                <Ionicons name="play-circle" size={40} color="white" />
               </View>
             </TouchableOpacity>
 
-            {/* Video 3 */}
+            {/* Stream 3 */}
             <TouchableOpacity
               style={styles.replayVideoContainer}
-              onPress={() => router.push("/program")}
+              onPress={() =>
+                router.push({
+                  pathname: "/stream",
+                  params: {
+                    playbackId: Config.MUX_PLAYBACK_ID,
+                    title: "Highlights de la Semana",
+                    description: "Lo mejor del fútbol esta semana",
+                    isLive: "false",
+                  },
+                })
+              }
             >
-              <Video
-                ref={video3Ref}
-                source={require("../assets/images/example.mp4")}
-                style={styles.replayVideo}
-                resizeMode={ResizeMode.COVER}
-                isLooping
-                shouldPlay
-                isMuted
-              />
-              <View style={styles.playOverlay}>
-                <Text style={styles.playIcon}>▶</Text>
+              <View style={styles.thumbnailSmall}>
+                <Ionicons name="play-circle" size={40} color="white" />
               </View>
             </TouchableOpacity>
           </View>
@@ -191,9 +201,38 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     backgroundColor: "#1a1a2e",
   },
-  mainVideo: {
+  thumbnailMain: {
     width: "100%",
     height: "100%",
+    backgroundColor: "#2a2a4e",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  liveOverlay: {
+    position: "absolute",
+    top: 15,
+    left: 15,
+    zIndex: 1,
+  },
+  liveBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FF0000",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 6,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "white",
+  },
+  liveText: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "bold",
   },
   replaySection: {
     paddingHorizontal: 20,
@@ -218,24 +257,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#1a1a2e",
     position: "relative",
   },
-  replayVideo: {
+  thumbnailSmall: {
     width: "100%",
     height: "100%",
-  },
-  playOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    backgroundColor: "#2a2a4e",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.3)",
-  },
-  playIcon: {
-    color: "white",
-    fontSize: 30,
-    opacity: 0.8,
   },
   bottomNav: {
     position: "absolute",
