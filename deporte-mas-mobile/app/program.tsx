@@ -5,18 +5,60 @@ import {
   StyleSheet,
   ScrollView,
   Dimensions,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Video, ResizeMode } from "expo-av";
-import { useRef } from "react";
-import { router } from "expo-router";
+import { useState, useRef } from "react";
+import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import muxExpoAv from "@codebayu/mux-data-expo-av";
+import { Config } from "../config";
 
 const { width: screenWidth } = Dimensions.get("window");
 
+// Wrap Video component with Mux monitoring
+const MuxVideo = muxExpoAv(Video);
+
+interface ProgramParams {
+  playbackId?: string;
+  title?: string;
+  description?: string;
+}
+
 export default function Program() {
+  const params = useLocalSearchParams() as ProgramParams;
   const videoRef = useRef<Video>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Default values if no params provided
+  const playbackId = params.playbackId || Config.MUX_PLAYBACK_ID;
+  const programTitle = params.title || "Programa DeporteMás";
+  const programDescription =
+    params.description || "Revive todo lo que pasó en el programa";
+
+  // Construct Mux stream URL
+  const streamUrl = `https://stream.mux.com/${playbackId}.m3u8`;
+
+  // Generate unique video ID for Mux monitoring
+  const muxVideoId = `${playbackId}_${programTitle.replace(/\s+/g, "_")}`;
+
+  const handlePlaybackStatusUpdate = (status: any) => {
+    if (status.isLoaded) {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVideoError = () => {
+    Alert.alert(
+      "Error de Reproducción",
+      "No se pudo cargar el video. Verifica tu conexión.",
+      [{ text: "OK" }]
+    );
+    setIsLoading(false);
+  };
 
   return (
     <LinearGradient
@@ -43,32 +85,46 @@ export default function Program() {
 
         {/* Program Title */}
         <View style={styles.titleSection}>
-          <Text style={styles.programTitle}>Programa 02/10/25</Text>
+          <Text style={styles.programTitle}>{programTitle}</Text>
         </View>
 
         {/* Video Player */}
         <View style={styles.videoContainer}>
-          <Video
+          {isLoading && (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color="#ffffff" />
+              <Text style={styles.loadingText}>Cargando video...</Text>
+            </View>
+          )}
+
+          <MuxVideo
+            key={muxVideoId}
             ref={videoRef}
-            source={require("../assets/images/example.mp4")}
+            source={{ uri: streamUrl }}
             style={styles.video}
             useNativeControls
             resizeMode={ResizeMode.CONTAIN}
-            isLooping
             shouldPlay
+            onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
+            onError={handleVideoError}
+            muxOptions={{
+              application_name: "DeporteMas",
+              application_version: "1.0.0",
+              data: {
+                env_key: Config.MUX_ENV_KEY,
+                video_id: muxVideoId,
+                video_title: programTitle,
+                viewer_user_id: "anonymous",
+                player_name: "expo-av",
+                video_stream_type: "on-demand",
+              },
+            }}
           />
         </View>
 
         {/* Program Description */}
         <View style={styles.descriptionSection}>
-          <Text style={styles.descriptionText}>
-            Revive todo lo que pasó en el programa de este domingo.
-          </Text>
-          <Text style={styles.descriptionText}>
-            Hablamos de los temas más relevantes del fútbol nacional e
-            internacional: los mejores momentos, jugadas clave y análisis de
-            expertos que no te puedes perder.
-          </Text>
+          <Text style={styles.descriptionText}>{programDescription}</Text>
         </View>
 
         {/* Bottom Padding */}
@@ -151,6 +207,22 @@ const styles = StyleSheet.create({
   video: {
     width: "100%",
     height: "100%",
+  },
+  loadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.7)",
+    zIndex: 10,
+  },
+  loadingText: {
+    color: "white",
+    marginTop: 10,
+    fontSize: 14,
   },
   descriptionSection: {
     paddingHorizontal: 20,

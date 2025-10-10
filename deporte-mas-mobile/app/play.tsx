@@ -3,17 +3,13 @@ import {
   View,
   TouchableOpacity,
   StyleSheet,
-  Dimensions,
   ScrollView,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { Video, ResizeMode } from "expo-av";
-import { useRef } from "react";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-
-const { width: screenWidth } = Dimensions.get("window");
+import { Config } from "../config";
 
 export default function Play() {
   return (
@@ -49,9 +45,9 @@ export default function Play() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Programas anteriores</Text>
           <View style={styles.videoGrid}>
-            <VideoThumbnail />
-            <VideoThumbnail />
-            <VideoThumbnail />
+            <VideoThumbnail title="Programa 10/10/25" />
+            <VideoThumbnail title="Programa 09/10/25" />
+            <VideoThumbnail title="Programa 08/10/25" />
           </View>
         </View>
 
@@ -59,9 +55,9 @@ export default function Play() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Nacionales</Text>
           <View style={styles.videoGrid}>
-            <VideoThumbnail />
-            <VideoThumbnail />
-            <VideoThumbnail />
+            <VideoThumbnail title="Liga MX Highlights" />
+            <VideoThumbnail title="Análisis Nacional" />
+            <VideoThumbnail title="Goles de la Semana" />
           </View>
         </View>
 
@@ -69,9 +65,9 @@ export default function Play() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Internacionales</Text>
           <View style={styles.videoGrid}>
-            <VideoThumbnail />
-            <VideoThumbnail />
-            <VideoThumbnail />
+            <VideoThumbnail title="Champions League" />
+            <VideoThumbnail title="Premier League" />
+            <VideoThumbnail title="La Liga" />
           </View>
         </View>
 
@@ -104,25 +100,27 @@ export default function Play() {
   );
 }
 
-function VideoThumbnail() {
-  const videoRef = useRef<Video>(null);
+interface VideoThumbnailProps {
+  title: string;
+}
 
+function VideoThumbnail({ title }: VideoThumbnailProps) {
   return (
     <TouchableOpacity
       style={styles.videoContainer}
-      onPress={() => router.push("/program")}
+      onPress={() =>
+        router.push({
+          pathname: "/program",
+          params: {
+            playbackId: Config.MUX_PLAYBACK_ID,
+            title: title,
+            description: `Contenido completo de ${title}`,
+          },
+        })
+      }
     >
-      <Video
-        ref={videoRef}
-        source={require("../assets/images/example.mp4")}
-        style={styles.video}
-        resizeMode={ResizeMode.COVER}
-        isLooping
-        shouldPlay
-        isMuted
-      />
-      <View style={styles.playOverlay}>
-        <Ionicons name="play" size={40} color="white" style={styles.playIcon} />
+      <View style={styles.thumbnail}>
+        <Ionicons name="play-circle" size={50} color="white" />
       </View>
     </TouchableOpacity>
   );
@@ -179,24 +177,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: "hidden",
     backgroundColor: "#1a1a2e",
-    position: "relative",
   },
-  video: {
+  thumbnail: {
     width: "100%",
     height: "100%",
-  },
-  playOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    backgroundColor: "#2a2a4e",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.3)",
-  },
-  playIcon: {
-    opacity: 0.9,
   },
   bottomNav: {
     position: "absolute",
