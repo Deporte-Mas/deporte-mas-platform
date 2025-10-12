@@ -1,6 +1,5 @@
 import { HeroSection } from "@/components/ui/hero-section";
 import { Icons } from "@/components/ui/icons";
-import heroMockup from "@/assets/hero-mockup.jpg";
 
 const Hero = () => {
   return (
@@ -27,8 +26,8 @@ const Hero = () => {
         },
       ]}
       image={{
-        light: heroMockup,
-        dark: heroMockup,
+        light: "/assets/Deporte-Mas-Mockup.png",
+        dark: "/assets/Deporte-Mas-Mockup.png",
         alt: "Deporte+ Club Platform Preview",
       }}
     />
