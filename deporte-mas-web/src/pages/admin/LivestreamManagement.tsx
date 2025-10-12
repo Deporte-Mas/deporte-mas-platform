@@ -70,10 +70,10 @@ const LivestreamManagement: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="bg-white rounded-lg p-6 border border-gray-200 shadow-sm flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Livestream Management</h2>
-          <p className="text-muted-foreground">
+          <h2 className="text-3xl font-bold tracking-tight text-gray-900">Livestream Management</h2>
+          <p className="text-gray-500 mt-1">
             Schedule and manage livestreams ({streams.length} total)
           </p>
         </div>
@@ -159,7 +159,7 @@ const LivestreamManagement: React.FC = () => {
       </div>
 
       {streams.length === 0 && (
-        <Card>
+        <Card className="bg-white border border-gray-200 shadow-sm">
           <CardContent className="py-8">
             <div className="text-center text-gray-500">
               <Radio className="w-12 h-12 mx-auto mb-4 text-gray-300" />

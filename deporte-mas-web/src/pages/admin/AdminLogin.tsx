@@ -43,32 +43,36 @@ const AdminLogin: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
+    <div className="min-h-screen flex items-center justify-center bg-white p-4">
+      <Card className="w-full max-w-md shadow-sm border border-gray-200 bg-white">
+        <CardHeader className="space-y-1 pb-6">
           <div className="flex items-center justify-center mb-4">
-            <div className="w-12 h-12 bg-gray-900 rounded-lg flex items-center justify-center">
-              <Lock className="w-6 h-6 text-white" />
+            <div className="w-14 h-14 bg-blue-500 rounded-xl flex items-center justify-center">
+              <Lock className="w-7 h-7 text-white" />
             </div>
           </div>
-          <CardTitle className="text-2xl text-center">Admin Login</CardTitle>
-          <CardDescription className="text-center">
-            Enter your authorized email to receive a magic link
+          <CardTitle className="text-2xl text-center font-bold text-gray-900">
+            Admin Portal
+          </CardTitle>
+          <CardDescription className="text-center text-gray-500">
+            Enter your authorized email to receive a secure magic link
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {success ? (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-              <CheckCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
-              <p className="text-green-800 font-medium">Magic link sent!</p>
-              <p className="text-green-600 text-sm mt-1">
-                Check your email and click the link to access the admin panel.
+            <div className="bg-green-50 border border-green-200 rounded-lg p-5 text-center">
+              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-3 border border-green-200">
+                <CheckCircle className="w-7 h-7 text-green-600" />
+              </div>
+              <p className="text-green-900 font-semibold text-lg mb-1">Magic link sent!</p>
+              <p className="text-green-700 text-sm">
+                Check your email and click the link to access the admin portal.
               </p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
+                <Label htmlFor="email" className="text-gray-700">Email Address</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                   <Input
@@ -79,7 +83,7 @@ const AdminLogin: React.FC = () => {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     disabled={loading}
-                    className="pl-10"
+                    className="pl-10 h-11 bg-white border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -91,7 +95,7 @@ const AdminLogin: React.FC = () => {
                 </div>
               )}
 
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white" disabled={loading}>
                 {loading ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
@@ -108,7 +112,7 @@ const AdminLogin: React.FC = () => {
           )}
 
           {DEV_MODE && (
-            <div className="pt-4 border-t">
+            <div className="pt-4 border-t border-gray-200">
               <p className="text-xs text-gray-500 text-center mb-2">Development Mode</p>
               <Button
                 onClick={handleDevBypass}
@@ -120,9 +124,9 @@ const AdminLogin: React.FC = () => {
             </div>
           )}
 
-          <div className="text-xs text-gray-500 text-center space-y-1">
-            <p>Only authorized email addresses can access the admin panel.</p>
-            <p>Contact your administrator if you need access.</p>
+          <div className="text-xs text-gray-500 text-center space-y-1 pt-2">
+            <p>Only authorized email addresses can access the admin portal.</p>
+            <p className="text-gray-400">Contact your administrator if you need access.</p>
           </div>
         </CardContent>
       </Card>
