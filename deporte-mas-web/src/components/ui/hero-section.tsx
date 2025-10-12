@@ -45,17 +45,17 @@ export function HeroSection({
     <section
       className={cn(
         "bg-background text-foreground",
-        "py-12 sm:py-24 md:py-32 px-4",
-        "fade-bottom overflow-hidden pb-0"
+        "py-8 sm:py-12 px-4 min-h-screen flex items-center",
+        "fade-bottom overflow-hidden"
       )}
     >
-      <div className="mx-auto flex max-w-container flex-col gap-12 pt-16 sm:gap-24">
-        <div className="flex flex-col items-center gap-6 text-center sm:gap-12">
+      <div className="mx-auto flex max-w-container flex-col gap-8 sm:gap-12 w-full">
+        <div className="flex flex-col items-center gap-4 sm:gap-6 text-center">
           {/* Logo */}
           <img
             src="/assets/Full-Logo-White.png"
             alt="Deporte+ Club"
-            className="h-16 sm:h-20 md:h-24 animate-appear"
+            className="h-14 sm:h-16 md:h-20 animate-appear"
           />
 
           {/* Badge */}
@@ -70,31 +70,29 @@ export function HeroSection({
           )}
 
           {/* Title */}
-          <h1 className="relative z-10 inline-block animate-appear bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-4xl font-semibold leading-tight text-transparent drop-shadow-2xl sm:text-6xl sm:leading-tight md:text-8xl md:leading-tight delay-300">
+          <h1 className="relative z-10 inline-block animate-appear bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold leading-tight text-transparent drop-shadow-2xl delay-300 px-4 max-w-5xl">
             {title}
           </h1>
 
           {/* Description */}
-          <p className="text-md relative z-10 max-w-[550px] animate-appear font-medium text-muted-foreground opacity-0 delay-500 sm:text-xl">
+          <p className="text-sm sm:text-base md:text-lg relative z-10 max-w-[550px] animate-appear font-medium text-muted-foreground opacity-0 delay-500">
             {description}
           </p>
 
           {/* Actions */}
-          <div className="relative z-10 flex animate-appear justify-center gap-4 opacity-0 delay-700">
-            <div className="relative z-10 flex animate-appear justify-center gap-4 opacity-0 delay-300">
-              {actions.map((action, index) => (
-                <Button key={index} variant={action.variant} size="lg" asChild>
-                  <a href={action.href} className="flex items-center gap-2">
-                    {action.icon}
-                    {action.text}
-                  </a>
-                </Button>
-              ))}
-            </div>
+          <div className="relative z-10 flex flex-wrap animate-appear justify-center gap-3 sm:gap-4 opacity-0 delay-700">
+            {actions.map((action, index) => (
+              <Button key={index} variant={action.variant} size="lg" asChild>
+                <a href={action.href} className="flex items-center gap-2 scroll-smooth">
+                  {action.icon}
+                  {action.text}
+                </a>
+              </Button>
+            ))}
           </div>
 
           {/* Image with Glow */}
-          <div className="relative pt-12">
+          <div className="relative pt-8 sm:pt-12">
             <MockupFrame
               className="animate-appear opacity-0 delay-1000"
               size="small"
@@ -105,6 +103,9 @@ export function HeroSection({
                   alt={image.alt}
                   width="1248"
                   height="765"
+                  loading="lazy"
+                  decoding="async"
+                  className="w-full h-auto"
                 />
               </Mockup>
             </MockupFrame>

@@ -17,7 +17,7 @@ const Hero = () => {
         {
           text: "ÚNETE AHORA",
           href: "#pricing",
-          variant: "default",
+          variant: "hero",
         },
         {
           text: "VER BENEFICIOS",
