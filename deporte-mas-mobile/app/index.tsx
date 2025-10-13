@@ -3,40 +3,94 @@ import {
   View,
   Image,
   TouchableOpacity,
-  Linking,
-  ScrollView,
+  Alert,
   Dimensions,
+  StyleSheet,
+  Animated,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { router } from "expo-router";
+import { openSubscriptionDirect } from "../services/subscriptionService";
+import { ThemedView, ThemedText, GradientButton, Card } from "../components/themed";
+import { LinearGradient } from "expo-linear-gradient";
 
 const { width: screenWidth } = Dimensions.get("window");
 
+const messages = [
+  {
+    title: "Míralo donde sea",
+    description: "Transmite en tu dispositivo móvil",
+  },
+  {
+    title: "Revive los mejores momentos",
+    description: "Accede a repeticiones de los mejores momentos del programa",
+  },
+  {
+    title: "Accede a Giveaways mensuales",
+    description: "Gana chemas, saludos personalizados y mucho más",
+  },
+  {
+    title: "Cancela cuando quieras",
+    description: "Si no te gusta, tranquilo nosotros te ayudamos",
+  },
+];
+
 export default function Index() {
   const [currentPage, setCurrentPage] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Fade out
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        // Change page
+        setCurrentPage((prev) => (prev + 1) % messages.length);
+
+        // Fade in
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+      });
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLogin = () => {
     router.push("/login");
   };
 
-  const handleRegister = () => {
-    Linking.openURL("https://deportesmas.com/register");
-  };
+  const handleRegister = async () => {
+    if (isLoading) return;
 
-  const handleScroll = (event: any) => {
-    const contentOffsetX = event.nativeEvent.contentOffset.x;
-    const pageIndex = Math.round(contentOffsetX / screenWidth);
-    setCurrentPage(pageIndex);
+    setIsLoading(true);
+    try {
+      const result = await openSubscriptionDirect();
+
+      if (!result.success && result.message) {
+        Alert.alert("Error", result.message);
+      }
+    } catch (error) {
+      console.error("Subscription error:", error);
+      Alert.alert(
+        "Error",
+        "Ocurrió un error inesperado. Por favor, intenta nuevamente."
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: "#010017",
-      }}
-    >
+    <ThemedView>
       <StatusBar style="light" hidden={true} />
 
       {/* Header */}
@@ -61,213 +115,62 @@ export default function Index() {
         />
 
         {/* Login Button */}
-        <TouchableOpacity
-          onPress={handleLogin}
-          style={{
-            backgroundColor: "#2d2d2d",
-            paddingHorizontal: 20,
-            paddingVertical: 10,
-            borderRadius: 8,
-          }}
-        >
-          <Text style={{ color: "white", fontWeight: "600" }}>Ingresar</Text>
-        </TouchableOpacity>
+        <GradientButton title="Ingresar" onPress={handleLogin} style={styles.headerButton} />
       </View>
 
-      {/* Main Content - Swipeable Carousel */}
-      <View style={{ flex: 1 }}>
-        <ScrollView
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          style={{ flex: 1 }}
+      {/* Main Content - Static with Auto-changing Text */}
+      <View style={{ flex: 1, position: "relative" }}>
+        {/* Static Logo - Absolute Position */}
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            justifyContent: "center",
+            alignItems: "center",
+          }}
         >
-          {/* Screen 1 - TV with Soccer */}
-          <View
+          <Image
+            source={require("../assets/images/deportemas-isotipo-blanco.png")}
             style={{
-              width: screenWidth,
-              justifyContent: "center",
-              alignItems: "center",
-              paddingHorizontal: 20,
+              width: 350,
+              height: 350,
+              resizeMode: "contain",
+              opacity: 0.2,
+              marginBottom: 120,
             }}
-          >
-            {/* TV Illustration */}
-            <Image
-              source={require("../assets/images/futStream.png")}
-              style={{
-                width: 280,
-                height: 200,
-                marginBottom: 30,
-                resizeMode: "contain",
-              }}
-            />
+          />
+        </View>
 
-            {/* Main Text */}
-            <Text
-              style={{
-                color: "white",
-                fontSize: 28,
-                fontWeight: "bold",
-                textAlign: "center",
-                marginBottom: 10,
-              }}
-            >
-              Míralo donde sea
-            </Text>
+        {/* Animated Text - On Top */}
+        <View
+          style={{
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            paddingHorizontal: 40,
+          }}
+        >
+          <Animated.View style={{ opacity: fadeAnim, alignItems: "center", width: "100%" }}>
+            <ThemedText variant="title" style={styles.heading}>
+              {messages[currentPage].title}
+            </ThemedText>
 
-            <Text
-              style={{
-                color: "white",
-                fontSize: 16,
-                textAlign: "center",
-                opacity: 0.8,
-                marginBottom: 40,
-              }}
-            >
-              Transmite en tu dispositivo móvil
-            </Text>
-          </View>
+            <ThemedText variant="body" style={styles.description}>
+              {messages[currentPage].description}
+            </ThemedText>
+          </Animated.View>
+        </View>
 
-          {/* Screen 2 - Phone with Basketball Replay */}
-          <View
-            style={{
-              width: screenWidth,
-              justifyContent: "center",
-              alignItems: "center",
-              paddingHorizontal: 20,
-            }}
-          >
-            {/* Phone Illustration */}
-            <Image
-              source={require("../assets/images/replay.png")}
-              style={{
-                width: 280,
-                height: 200,
-                marginBottom: 30,
-                resizeMode: "contain",
-              }}
-            />
-
-            {/* Main Text */}
-            <Text
-              style={{
-                color: "white",
-                fontSize: 28,
-                fontWeight: "bold",
-                textAlign: "center",
-                marginBottom: 10,
-              }}
-            >
-              Revive los mejores momentos
-            </Text>
-
-            <Text
-              style={{
-                color: "white",
-                fontSize: 16,
-                textAlign: "center",
-                opacity: 0.8,
-                marginBottom: 40,
-              }}
-            >
-              Accede a repeticiones de los mejores momentos del programa
-            </Text>
-          </View>
-
-          {/* Screen 3 - Giveaway */}
-          <View
-            style={{
-              width: screenWidth,
-              justifyContent: "center",
-              alignItems: "center",
-              paddingHorizontal: 20,
-            }}
-          >
-            {/* Giveaway Illustration */}
-            <Image
-              source={require("../assets/images/giveaway.png")}
-              style={{
-                width: 280,
-                height: 200,
-                marginBottom: 30,
-                resizeMode: "contain",
-              }}
-            />
-
-            {/* Main Text */}
-            <Text
-              style={{
-                color: "white",
-                fontSize: 28,
-                fontWeight: "bold",
-                textAlign: "center",
-                marginBottom: 10,
-              }}
-            >
-              Accede a Giveaways mensuales
-            </Text>
-
-            <Text
-              style={{
-                color: "white",
-                fontSize: 16,
-                textAlign: "center",
-                opacity: 0.8,
-                marginBottom: 40,
-              }}
-            >
-              Gana chemas, saludos personalizados y mucho más
-            </Text>
-          </View>
-
-          {/* Screen 4 - Cancel */}
-          <View
-            style={{
-              width: screenWidth,
-              justifyContent: "center",
-              alignItems: "center",
-              paddingHorizontal: 20,
-            }}
-          >
-            {/* Cancel Illustration */}
-            <Image
-              source={require("../assets/images/cancel.png")}
-              style={{
-                width: 280,
-                height: 200,
-                marginBottom: 30,
-                resizeMode: "contain",
-              }}
-            />
-
-            {/* Main Text */}
-            <Text
-              style={{
-                color: "white",
-                fontSize: 28,
-                fontWeight: "bold",
-                textAlign: "center",
-                marginBottom: 10,
-              }}
-            >
-              Cancela cuando quieras
-            </Text>
-
-            <Text
-              style={{
-                color: "white",
-                fontSize: 16,
-                textAlign: "center",
-                opacity: 0.8,
-                marginBottom: 40,
-              }}
-            >
-              Si no te gusta, tranquilo nosotros te ayudamos
-            </Text>
-          </View>
-        </ScrollView>
+        {/* Gradient Fade at Bottom */}
+        <LinearGradient
+          colors={["rgba(9, 11, 28, 0)", "rgba(9, 11, 28, 0.3)", "rgba(9, 11, 28, 0.7)", "rgba(9, 11, 28, 1)"]}
+          locations={[0, 0.3, 0.7, 1]}
+          style={styles.fadeGradient}
+          pointerEvents="none"
+        />
 
         {/* Page Indicators */}
         <View
@@ -321,46 +224,78 @@ export default function Index() {
       </View>
 
       {/* Footer */}
-      <View
-        style={{
-          paddingHorizontal: 20,
-          paddingBottom: 30,
-        }}
-      >
-        <TouchableOpacity
-          onPress={handleRegister}
-          style={{
-            backgroundColor: "#2d1b69",
-            borderWidth: 1,
-            borderColor: "#8b5cf6",
-            borderRadius: 12,
-            padding: 20,
-            alignItems: "center",
-          }}
-        >
-          <Text
-            style={{
-              color: "white",
-              fontSize: 16,
-              fontWeight: "600",
-              marginBottom: 8,
-            }}
+      <View style={styles.footerContainer}>
+        <Card style={styles.footerCard}>
+          <TouchableOpacity
+            onPress={handleRegister}
+            style={styles.footerContent}
+            disabled={isLoading}
           >
-            Crea una cuenta y obtén los beneficios.
-          </Text>
-          <Text
-            style={{
-              color: "#a78bfa",
-              fontSize: 14,
-            }}
-          >
-            Navega a{" "}
-            <Text style={{ color: "#c4b5fd", textDecorationLine: "underline" }}>
-              deportesmas.com/register
-            </Text>
-          </Text>
-        </TouchableOpacity>
+            <ThemedText variant="body" style={styles.footerTitle}>
+              {isLoading ? "Cargando..." : "Crea una cuenta y obtén los beneficios."}
+            </ThemedText>
+            <ThemedText variant="body" style={styles.footerSubtitle}>
+              Navega a{" "}
+              <ThemedText variant="body" style={styles.footerLink}>
+                deporte-mas-platform.vercel.app
+              </ThemedText>
+            </ThemedText>
+          </TouchableOpacity>
+        </Card>
       </View>
-    </View>
+    </ThemedView>
   );
 }
+
+const styles = StyleSheet.create({
+  headerButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+  },
+  heading: {
+    fontSize: 46,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  description: {
+    fontSize: 16,
+    textAlign: "center",
+    opacity: 0.8,
+    marginBottom: 40,
+  },
+  fadeGradient: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 350,
+  },
+  footerContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 30,
+  },
+  footerCard: {
+    padding: 0,
+    overflow: "hidden",
+  },
+  footerContent: {
+    padding: 20,
+    alignItems: "center",
+  },
+  footerTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  footerSubtitle: {
+    fontSize: 14,
+    opacity: 0.7,
+    textAlign: "center",
+  },
+  footerLink: {
+    textDecorationLine: "underline",
+    opacity: 0.9,
+  },
+});

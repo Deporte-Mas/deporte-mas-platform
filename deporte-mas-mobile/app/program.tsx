@@ -13,7 +13,8 @@ import { Video, ResizeMode } from "expo-av";
 import { useState, useRef } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
+import { ThemedView, ThemedText, Card } from "../components/themed";
+import { Theme } from "../constants/Theme";
 import muxExpoAv from "@codebayu/mux-data-expo-av";
 import { Config } from "../config";
 
@@ -61,31 +62,25 @@ export default function Program() {
   };
 
   return (
-    <LinearGradient
-      colors={["#010017", "#06007D"]}
-      style={styles.container}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 0, y: 1 }}
-    >
+    <ThemedView style={styles.container}>
       <StatusBar style="light" hidden={true} />
 
       <ScrollView style={styles.scrollView}>
-        {/* Header */}
+        {/* Header with Back Button */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Volver a ver</Text>
-          <View style={styles.headerIcons}>
-            <TouchableOpacity style={styles.iconButton}>
-              <Ionicons name="chatbubble-outline" size={24} color="white" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.iconButton}>
-              <Ionicons name="search-outline" size={24} color="white" />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <Ionicons name="arrow-back" size={26} color="white" />
+          </TouchableOpacity>
+          <ThemedText variant="title" style={styles.headerTitle}>Volver a ver</ThemedText>
+          <View style={styles.placeholder} />
         </View>
 
         {/* Program Title */}
         <View style={styles.titleSection}>
-          <Text style={styles.programTitle}>{programTitle}</Text>
+          <ThemedText variant="title" style={styles.programTitle}>{programTitle}</ThemedText>
         </View>
 
         {/* Video Player */}
@@ -93,7 +88,7 @@ export default function Program() {
           {isLoading && (
             <View style={styles.loadingOverlay}>
               <ActivityIndicator size="large" color="#ffffff" />
-              <Text style={styles.loadingText}>Cargando video...</Text>
+              <ThemedText variant="body" style={styles.loadingText}>Cargando video...</ThemedText>
             </View>
           )}
 
@@ -124,35 +119,13 @@ export default function Program() {
 
         {/* Program Description */}
         <View style={styles.descriptionSection}>
-          <Text style={styles.descriptionText}>{programDescription}</Text>
+          <ThemedText variant="body" style={styles.descriptionText}>{programDescription}</ThemedText>
         </View>
 
         {/* Bottom Padding */}
-        <View style={{ height: 100 }} />
+        <View style={{ height: 40 }} />
       </ScrollView>
-
-      {/* Bottom Navigation */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navButton}
-          onPress={() => router.push("/home")}
-        >
-          <Ionicons name="home-outline" size={28} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navButton}
-          onPress={() => router.push("/play")}
-        >
-          <Ionicons name="play-outline" size={28} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navButton}
-          onPress={() => router.push("/profile")}
-        >
-          <Ionicons name="person-outline" size={28} color="white" />
-        </TouchableOpacity>
-      </View>
-    </LinearGradient>
+    </ThemedView>
   );
 }
 
@@ -171,29 +144,23 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 20,
   },
-  headerTitle: {
-    color: "white",
-    fontSize: 24,
-    fontWeight: "bold",
-  },
-  headerIcons: {
-    flexDirection: "row",
-    gap: 15,
-  },
-  iconButton: {
-    width: 32,
-    height: 32,
+  backButton: {
+    width: 40,
+    height: 40,
     justifyContent: "center",
     alignItems: "center",
+  },
+  headerTitle: {
+    fontSize: 20,
+  },
+  placeholder: {
+    width: 40,
   },
   titleSection: {
     paddingHorizontal: 20,
     marginBottom: 15,
   },
   programTitle: {
-    color: "white",
-    fontSize: 20,
-    fontWeight: "bold",
   },
   videoContainer: {
     width: screenWidth - 32,
@@ -202,7 +169,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderRadius: 12,
     overflow: "hidden",
-    backgroundColor: "#1a1a2e",
+    backgroundColor: Theme.colors.card,
   },
   video: {
     width: "100%",
@@ -220,35 +187,14 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   loadingText: {
-    color: "white",
     marginTop: 10,
-    fontSize: 14,
   },
   descriptionSection: {
     paddingHorizontal: 20,
     gap: 12,
   },
   descriptionText: {
-    color: "white",
-    fontSize: 15,
     lineHeight: 22,
     opacity: 0.9,
-  },
-  bottomNav: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    backgroundColor: "#1a1a2e",
-    paddingVertical: 15,
-    paddingBottom: 30,
-    borderTopWidth: 1,
-    borderTopColor: "#2a2a3e",
-  },
-  navButton: {
-    padding: 10,
   },
 });

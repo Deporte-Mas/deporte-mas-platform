@@ -5,15 +5,19 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "deportemasmobile",
+    "scheme": "deportemas",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "statusBarStyle": "light-content",
-    "statusBarBackgroundColor": "#010017",
+    "statusBarBackgroundColor": "#090B1C",
     "ios": {
       "supportsTablet": true,
       "statusBarStyle": "light-content",
-      "statusBarBackgroundColor": "#010017"
+      "statusBarBackgroundColor": "#090B1C",
+      "bundleIdentifier": "com.deportemas.mobile",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -37,9 +41,9 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#010017",
+          "backgroundColor": "#090B1C",
           "dark": {
-            "backgroundColor": "#010017"
+            "backgroundColor": "#090B1C"
           }
         }
       ]
@@ -47,6 +51,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "7b64101f-c04f-4708-a501-9cb246336d3f"
+      }
+    },
+    "owner": "deporte-mas"
   }
 }

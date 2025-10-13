@@ -1,5 +1,4 @@
 import {
-  Text,
   View,
   TouchableOpacity,
   StyleSheet,
@@ -13,7 +12,7 @@ import { Video, ResizeMode } from "expo-av";
 import { useState, useRef } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
+import { ThemedView, ThemedText, Card } from "../components/themed";
 import muxExpoAv from "@codebayu/mux-data-expo-av";
 import { Config } from "../config";
 
@@ -62,12 +61,7 @@ export default function Stream() {
   };
 
   return (
-    <LinearGradient
-      colors={["#010017", "#06007D"]}
-      style={styles.container}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 0, y: 1 }}
-    >
+    <ThemedView style={styles.container}>
       <StatusBar style="light" hidden={false} />
 
       {/* Header */}
@@ -81,7 +75,7 @@ export default function Stream() {
         {isLive && (
           <View style={styles.headerLiveBadge}>
             <View style={styles.liveDot} />
-            <Text style={styles.headerLiveText}>EN VIVO</Text>
+            <ThemedText variant="body" style={styles.headerLiveText}>EN VIVO</ThemedText>
           </View>
         )}
       </View>
@@ -94,13 +88,13 @@ export default function Stream() {
         <View style={styles.videoWrapper}>
           {/* Stream Info */}
           <View style={styles.streamInfo}>
-            <Text style={styles.streamTitle} numberOfLines={2}>
+            <ThemedText variant="title" style={styles.streamTitle} numberOfLines={2}>
               {streamTitle}
-            </Text>
+            </ThemedText>
             {streamDescription && (
-              <Text style={styles.streamDescription} numberOfLines={3}>
+              <ThemedText variant="body" style={styles.streamDescription} numberOfLines={3}>
                 {streamDescription}
-              </Text>
+              </ThemedText>
             )}
           </View>
 
@@ -108,7 +102,7 @@ export default function Stream() {
             {isLoading && (
               <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="large" color="#ffffff" />
-                <Text style={styles.loadingText}>Cargando stream...</Text>
+                <ThemedText variant="body" style={styles.loadingText}>Cargando stream...</ThemedText>
               </View>
             )}
 
@@ -138,29 +132,7 @@ export default function Stream() {
           </View>
         </View>
       </ScrollView>
-
-      {/* Bottom Navigation */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navButton}
-          onPress={() => router.push("/home")}
-        >
-          <Ionicons name="home-outline" size={28} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navButton}
-          onPress={() => router.push("/play")}
-        >
-          <Ionicons name="play-outline" size={28} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navButton}
-          onPress={() => router.push("/profile")}
-        >
-          <Ionicons name="person-outline" size={28} color="white" />
-        </TouchableOpacity>
-      </View>
-    </LinearGradient>
+    </ThemedView>
   );
 }
 
@@ -214,9 +186,7 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
   },
   headerLiveText: {
-    color: "white",
     fontSize: 13,
-    fontWeight: "bold",
     letterSpacing: 0.5,
   },
   videoWrapper: {
@@ -248,9 +218,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   loadingText: {
-    color: "white",
     marginTop: 10,
-    fontSize: 14,
   },
   streamInfo: {
     alignItems: "flex-start",
@@ -259,35 +227,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   streamTitle: {
-    color: "white",
-    fontSize: 24,
-    fontWeight: "bold",
     marginBottom: 8,
     lineHeight: 30,
     textAlign: "left",
   },
   streamDescription: {
-    color: "white",
-    fontSize: 15,
     lineHeight: 22,
     opacity: 0.85,
     textAlign: "left",
-  },
-  bottomNav: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    backgroundColor: "#1a1a2e",
-    paddingVertical: 15,
-    paddingBottom: 30,
-    borderTopWidth: 1,
-    borderTopColor: "#2a2a3e",
-  },
-  navButton: {
-    padding: 10,
   },
 });

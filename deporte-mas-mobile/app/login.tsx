@@ -6,27 +6,45 @@ import {
   Image,
   StyleSheet,
   Dimensions,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import { router } from "expo-router";
+import { useAuth } from "../contexts/AuthContext";
+import { ThemedView, ThemedText, GradientButton } from "../components/themed";
+import { Theme } from "../constants/Theme";
 
 const { width: screenWidth } = Dimensions.get("window");
 
 export default function Login() {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const { sendMagicLink } = useAuth();
 
-  const handleLogin = () => {
-    // TODO: Implement login logic
-    console.log("Login attempt with:", { email, password });
-    // Redirect to home after login
-    router.push("/home");
-  };
+  const handleLogin = async () => {
+    if (!email) {
+      Alert.alert("Error", "Por favor ingresa tu email");
+      return;
+    }
 
-  const handleForgotPassword = () => {
-    // TODO: Implement forgot password logic
-    console.log("Forgot password");
+    // Temporary bypass: go directly to home tabs
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      router.replace("/(tabs)/home");
+    }, 500);
+
+    // TODO: Uncomment this when ready to use real magic link
+    // const result = await sendMagicLink(email);
+    // setLoading(false);
+    // if (result.success) {
+    //   setSuccess(true);
+    // } else {
+    //   Alert.alert("Error", result.message);
+    // }
   };
 
   const handleBack = () => {
@@ -34,7 +52,7 @@ export default function Login() {
   };
 
   return (
-    <View style={styles.container}>
+    <ThemedView style={styles.container}>
       <StatusBar style="light" hidden={true} />
 
       {/* Header with back button */}
@@ -54,62 +72,66 @@ export default function Login() {
           />
         </View>
 
-        {/* Form */}
-        <View style={styles.form}>
-          {/* Email Field */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Email</Text>
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder=""
-              placeholderTextColor="#999"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-
-          {/* Password Field */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Contraseña</Text>
-            <TextInput
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              placeholder=""
-              placeholderTextColor="#999"
-              secureTextEntry
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-
-          {/* Login Button */}
-          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-            <Text style={styles.loginButtonText}>Ingresar</Text>
-          </TouchableOpacity>
-
-          {/* Forgot Password Link */}
-          <TouchableOpacity
-            onPress={handleForgotPassword}
-            style={styles.forgotPasswordContainer}
-          >
-            <Text style={styles.forgotPasswordText}>
-              Olvidaste la contraseña?
+        {success ? (
+          /* Success Message */
+          <View style={styles.successContainer}>
+            <Text style={styles.successTitle}>✓ Magic Link Enviado!</Text>
+            <Text style={styles.successText}>
+              Revisa tu email y haz click en el enlace para iniciar sesión.
             </Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              style={styles.backToLoginButton}
+              onPress={() => setSuccess(false)}
+            >
+              <Text style={styles.backToLoginText}>Volver</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          /* Login Form */
+          <View style={styles.form}>
+            {/* Email Field */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Email</Text>
+              <TextInput
+                style={styles.input}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="tu@email.com"
+                placeholderTextColor="#999"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!loading}
+              />
+            </View>
+
+            {/* Info Text */}
+            <Text style={styles.infoText}>
+              Te enviaremos un enlace mágico para iniciar sesión sin contraseña.
+            </Text>
+
+            {/* Login Button */}
+            {loading ? (
+              <View style={styles.loadingButton}>
+                <ActivityIndicator color="white" />
+              </View>
+            ) : (
+              <GradientButton
+                title="Enviar Magic Link"
+                onPress={handleLogin}
+                disabled={loading}
+              />
+            )}
+          </View>
+        )}
       </View>
-    </View>
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#010017", // Same dark background as index
   },
   header: {
     flexDirection: "row",
@@ -161,24 +183,48 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#333",
   },
-  loginButton: {
-    backgroundColor: "#2d1b69", // Dark purple button
+  loadingButton: {
     borderRadius: 8,
     paddingVertical: 15,
     alignItems: "center",
     marginBottom: 20,
   },
-  loginButtonText: {
+  infoText: {
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 13,
+    textAlign: "center",
+    marginBottom: 20,
+    lineHeight: 18,
+  },
+  successContainer: {
+    width: "100%",
+    maxWidth: 300,
+    alignItems: "center",
+  },
+  successTitle: {
+    color: "#4ade80",
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 20,
+  },
+  successText: {
+    color: "white",
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 30,
+    lineHeight: 24,
+  },
+  backToLoginButton: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "white",
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+  },
+  backToLoginText: {
     color: "white",
     fontSize: 16,
     fontWeight: "600",
-  },
-  forgotPasswordContainer: {
-    alignItems: "center",
-  },
-  forgotPasswordText: {
-    color: "white",
-    fontSize: 14,
-    textDecorationLine: "underline",
   },
 });
