@@ -6,102 +6,107 @@
 
 @layer base {
   :root {
-    /* Brand Colors - Deporte+ Official Palette */
-    --primary-blue-bright: 217 89% 38%;     /* #0C36B0 */
-    --primary-blue-deep: 228 81% 20%;       /* #0D1853 */
-    --emphasis-red: 359 68% 49%;            /* #D52324 */
-    --dark-navy: 230 74% 11%;               /* #040A2C */
-    --light-gray: 340 14% 93%;              /* #F2EDEF */
-    
-    /* Semantic Design Tokens - Light Theme */
-    --background: 0 0% 98%;                 /* Light background */
-    --foreground: 230 74% 11%;              /* Dark navy text */
-    
-    --card: 0 0% 100%;                      /* White cards */
-    --card-foreground: 230 74% 11%;
-    
-    --popover: 0 0% 100%;
-    --popover-foreground: 230 74% 11%;
-    
-    --primary: 217 89% 38%;                 /* Primary blue bright */
+    /* Costa Rica Brand Colors */
+    --cr-white: 0 0% 100%;                  /* #FFFFFF */
+    --cr-black: 0 0% 0%;                    /* #000000 */
+    --cr-red: 6 72% 47%;                    /* #C83927 - Costa Rica flag red */
+    --cr-blue: 236 97% 27%;                 /* #020B84 - Costa Rica flag blue */
+
+    /* UI Colors - Dark Navy Theme */
+    --navy-darkest: 231 56% 6%;             /* #090B1C - Primary background */
+    --navy-medium: 234 51% 14%;             /* #111536 - Secondary background */
+    --navy-light: 237 49% 23%;              /* #1D2255 - Elevated elements */
+
+    /* Action Colors */
+    --action-red: 4 77% 53%;                /* #E12F23 - Primary CTA */
+    --action-blue: 237 67% 45%;             /* #222DC2 - Secondary action */
+
+    /* Light Theme (Public Landing Page) */
+    --background: 231 56% 6%;               /* Dark navy background */
+    --foreground: 0 0% 100%;                /* White text */
+
+    --card: 234 51% 14%;                    /* Navy cards */
+    --card-foreground: 0 0% 100%;
+
+    --popover: 237 49% 23%;
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 4 77% 53%;                   /* Action red */
     --primary-foreground: 0 0% 100%;
-    
-    --secondary: 340 14% 93%;               /* Light gray */
-    --secondary-foreground: 230 74% 11%;
-    
-    --muted: 340 14% 93%;
-    --muted-foreground: 230 74% 20%;
-    
-    --accent: 359 68% 49%;                  /* Emphasis red */
+
+    --secondary: 237 67% 45%;               /* Action blue */
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 237 49% 23%;
+    --muted-foreground: 0 0% 70%;           /* White at 70% */
+
+    --accent: 4 77% 53%;                    /* Action red */
     --accent-foreground: 0 0% 100%;
-    
-    --destructive: 359 68% 49%;
+
+    --destructive: 4 77% 53%;
     --destructive-foreground: 0 0% 100%;
-    
-    --border: 340 14% 85%;
-    --input: 340 14% 85%;
-    --ring: 217 89% 38%;
-    
+
+    --border: 237 49% 30%;
+    --input: 237 49% 30%;
+    --ring: 4 77% 53%;
+
     --radius: 0.75rem;
-    
-    /* Custom Gradients - Light Theme */
-    --gradient-primary: linear-gradient(135deg, hsl(var(--primary-blue-bright)), hsl(var(--primary-blue-deep)));
-    --gradient-hero: linear-gradient(135deg, hsl(0 0% 98%), hsl(340 14% 95%));
-    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(340 14% 97%));
-    
+
+    /* Custom Gradients */
+    --gradient-primary: linear-gradient(135deg, #222DC2, #E12F23);  /* Blue to Red */
+    --gradient-hero: linear-gradient(180deg, #090B1C 0%, #111536 100%);
+    --gradient-card: linear-gradient(145deg, #111536, #1D2255);
+
     /* Shadows */
-    --shadow-glow: 0 0 40px hsl(var(--primary-blue-bright) / 0.3);
-    --shadow-card: 0 10px 30px -10px hsl(var(--dark-navy) / 0.5);
-    --shadow-intense: 0 20px 50px -15px hsl(var(--primary-blue-bright) / 0.4);
-    
+    --shadow-glow: 0 0 40px rgba(226, 47, 35, 0.3);
+    --shadow-card: 0 10px 30px -10px rgba(9, 11, 28, 0.5);
+    --shadow-intense: 0 20px 50px -15px rgba(34, 45, 194, 0.4);
+
     /* Animations */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 231 56% 6%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 4 77% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 237 49% 23%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 237 49% 30%;
+    --sidebar-ring: 4 77% 53%;
   }
 
   .dark {
-    /* Keep same colors - Deporte+ brand works best on dark */
-    --background: 230 74% 11%;
-    --foreground: 340 14% 93%;
-    --card: 228 81% 20%;
-    --card-foreground: 340 14% 93%;
-    --popover: 228 81% 20%;
-    --popover-foreground: 340 14% 93%;
-    --primary: 217 89% 38%;
+    /* Same dark theme - already optimized */
+    --background: 231 56% 6%;
+    --foreground: 0 0% 100%;
+    --card: 234 51% 14%;
+    --card-foreground: 0 0% 100%;
+    --popover: 237 49% 23%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 4 77% 53%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 228 81% 20%;
-    --secondary-foreground: 340 14% 93%;
-    --muted: 228 81% 20%;
-    --muted-foreground: 340 14% 73%;
-    --accent: 359 68% 49%;
+    --secondary: 237 67% 45%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 237 49% 23%;
+    --muted-foreground: 0 0% 70%;
+    --accent: 4 77% 53%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 359 68% 49%;
+    --destructive: 4 77% 53%;
     --destructive-foreground: 0 0% 100%;
-    --border: 228 81% 30%;
-    --input: 228 81% 30%;
-    --ring: 217 89% 38%;
+    --border: 237 49% 30%;
+    --input: 237 49% 30%;
+    --ring: 4 77% 53%;
   }
 }
 
 @layer base {
   * {
     @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
   }
 
   body {
@@ -156,13 +161,13 @@
 
 @layer base {
   :root {
-    --brand: 27 96% 61%;
-    --brand-foreground: 31 97% 72%;
+    --brand: 4 77% 53%;                     /* Action red */
+    --brand-foreground: 0 0% 100%;
   }
- 
+
   .dark {
-    --brand: 31 97% 72%;
-    --brand-foreground: 27 96% 61%
+    --brand: 4 77% 53%;
+    --brand-foreground: 0 0% 100%;
   }
 }
 

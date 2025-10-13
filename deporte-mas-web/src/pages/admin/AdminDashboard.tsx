@@ -81,9 +81,11 @@ const AdminDashboard: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* Welcome */}
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-        <p className="text-muted-foreground">
+      <div className="bg-white rounded-lg p-6 border border-gray-200 shadow-sm">
+        <h2 className="text-3xl font-bold tracking-tight text-gray-900">
+          Dashboard
+        </h2>
+        <p className="text-gray-500 mt-1">
           Overview of Deporte+ platform activity
         </p>
       </div>
@@ -91,16 +93,16 @@ const AdminDashboard: React.FC = () => {
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {statsCards.map((stat) => (
-          <Card key={stat.title}>
+          <Card key={stat.title} className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
+              <CardTitle className="text-sm font-medium text-gray-700">
                 {stat.title}
               </CardTitle>
-              <stat.icon className={`h-4 w-4 ${stat.color}`} />
+              <stat.icon className={`h-5 w-5 ${stat.color}`} />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="text-xs text-muted-foreground">
+              <div className="text-2xl font-bold text-gray-900">{stat.value}</div>
+              <p className="text-xs text-gray-500 mt-1">
                 {stat.description}
               </p>
             </CardContent>
@@ -110,14 +112,14 @@ const AdminDashboard: React.FC = () => {
 
       {/* Quick Actions */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
+        <Card className="bg-white border border-gray-200 shadow-sm">
           <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-gray-900">Quick Actions</CardTitle>
+            <CardDescription className="text-gray-500">
               Create and manage content
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-2">
             <Button
               onClick={() => navigate('/admin/courses')}
               className="w-full justify-start"
@@ -145,33 +147,33 @@ const AdminDashboard: React.FC = () => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-white border border-gray-200 shadow-sm">
           <CardHeader>
-            <CardTitle>Platform Overview</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-gray-900">Platform Overview</CardTitle>
+            <CardDescription className="text-gray-500">
               Key platform statistics
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-sm">Conversion Rate</span>
-              <span className="text-sm font-medium">
+              <span className="text-sm text-gray-600">Conversion Rate</span>
+              <span className="text-sm font-semibold text-gray-900">
                 {stats?.activeSubscriptions && stats?.totalUsers
                   ? Math.round((stats.activeSubscriptions / stats.totalUsers) * 100)
                   : 0}%
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm">Avg. Revenue per User</span>
-              <span className="text-sm font-medium">
+              <span className="text-sm text-gray-600">Avg. Revenue per User</span>
+              <span className="text-sm font-semibold text-gray-900">
                 ${stats?.activeSubscriptions
                   ? Math.round((stats.monthlyRevenue || 0) / stats.activeSubscriptions)
                   : 0}
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm">Content Items</span>
-              <span className="text-sm font-medium">
+              <span className="text-sm text-gray-600">Content Items</span>
+              <span className="text-sm font-semibold text-gray-900">
                 {(stats?.totalCourses || 0) + (stats?.totalVideos || 0) + (stats?.totalStreams || 0)}
               </span>
             </div>

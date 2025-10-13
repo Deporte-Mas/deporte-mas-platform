@@ -61,39 +61,39 @@ const UserManagement: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">User Management</h2>
-        <p className="text-muted-foreground">
+      <div className="bg-white rounded-lg p-6 border border-gray-200 shadow-sm">
+        <h2 className="text-3xl font-bold tracking-tight text-gray-900">User Management</h2>
+        <p className="text-gray-500 mt-1">
           Manage registered users ({users.length} total)
         </p>
       </div>
 
       {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+      <div className="relative bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+        <Search className="absolute left-7 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
         <Input
           type="text"
           placeholder="Search by email or name..."
           value={searchQuery}
           onChange={(e) => handleSearch(e.target.value)}
-          className="pl-10"
+          className="pl-10 bg-white border-gray-300"
         />
       </div>
 
       {/* Users Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {users.map((user) => (
-          <Card key={user.id} className="hover:shadow-md transition-shadow">
+          <Card key={user.id} className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">
+                <CardTitle className="text-lg text-gray-900">
                   {user.name || 'No name'}
                 </CardTitle>
                 <Badge className={getStatusColor(user.subscription_status)}>
                   {getStatusText(user.subscription_status)}
                 </Badge>
               </div>
-              <CardDescription className="flex items-center">
+              <CardDescription className="flex items-center text-gray-600">
                 <Mail className="w-4 h-4 mr-2" />
                 {user.email}
               </CardDescription>
@@ -140,7 +140,7 @@ const UserManagement: React.FC = () => {
       </div>
 
       {users.length === 0 && (
-        <Card>
+        <Card className="bg-white border border-gray-200 shadow-sm">
           <CardContent className="py-8">
             <div className="text-center text-gray-500">
               <Mail className="w-12 h-12 mx-auto mb-4 text-gray-300" />
