@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { router } from "expo-router";
 import { useAuth } from "../contexts/AuthContext";
 import { ThemedView, ThemedText, GradientButton } from "../components/themed";
@@ -22,11 +22,42 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [rateLimitedUntil, setRateLimitedUntil] = useState<number | null>(null);
+  const [secondsRemaining, setSecondsRemaining] = useState(0);
   const { sendMagicLink } = useAuth();
+
+  // Countdown timer for rate limiting
+  useEffect(() => {
+    if (!rateLimitedUntil) {
+      setSecondsRemaining(0);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const remaining = Math.ceil((rateLimitedUntil - Date.now()) / 1000);
+      if (remaining <= 0) {
+        setRateLimitedUntil(null);
+        setSecondsRemaining(0);
+      } else {
+        setSecondsRemaining(remaining);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [rateLimitedUntil]);
 
   const handleLogin = async () => {
     if (!email) {
       Alert.alert("Error", "Por favor ingresa tu email");
+      return;
+    }
+
+    // Check if rate limited
+    if (rateLimitedUntil && Date.now() < rateLimitedUntil) {
+      Alert.alert(
+        "Espera un momento",
+        `Demasiados intentos. Intenta nuevamente en ${secondsRemaining} segundos.`
+      );
       return;
     }
 
@@ -37,6 +68,11 @@ export default function Login() {
     if (result.success) {
       setSuccess(true);
     } else {
+      // Check if this is a rate limit error
+      if (result.message.toLowerCase().includes('demasiados intentos')) {
+        // Set rate limit for 60 seconds
+        setRateLimitedUntil(Date.now() + 60000);
+      }
       Alert.alert("Error", result.message);
     }
   };
@@ -111,9 +147,13 @@ export default function Login() {
               </View>
             ) : (
               <GradientButton
-                title="Enviar Magic Link"
+                title={
+                  secondsRemaining > 0
+                    ? `Espera ${secondsRemaining}s`
+                    : "Enviar Magic Link"
+                }
                 onPress={handleLogin}
-                disabled={loading}
+                disabled={loading || secondsRemaining > 0}
               />
             )}
           </View>

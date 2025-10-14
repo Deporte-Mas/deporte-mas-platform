@@ -77,7 +77,34 @@ export default function RootLayout() {
 
         console.log('Parsed params:', params);
 
-        const { access_token, refresh_token, type } = params;
+        const { access_token, refresh_token, type, error, error_code, error_description } = params;
+
+        // Check if there's an error in the callback
+        if (error || error_code) {
+          console.log('Deep link error:', { error, error_code, error_description });
+
+          // Handle expired OTP
+          if (error_code === 'otp_expired' || error_description?.includes('expired')) {
+            Alert.alert(
+              'Enlace Expirado',
+              'El enlace ha expirado. Solicita uno nuevo.',
+              [{ text: 'OK' }]
+            );
+          }
+          // Handle access denied or other errors
+          else {
+            const message = error_description
+              ? decodeURIComponent(error_description.replace(/\+/g, ' '))
+              : 'No se pudo iniciar sesión. Intenta nuevamente.';
+
+            Alert.alert(
+              'Error',
+              message,
+              [{ text: 'OK' }]
+            );
+          }
+          return;
+        }
 
         // Validate this is a magic link callback
         if (type !== 'magiclink') {
@@ -102,16 +129,16 @@ export default function RootLayout() {
         console.log('Processing magic link authentication...');
 
         // Set the session with the tokens from the magic link
-        const { error } = await supabase.auth.setSession({
+        const { error: sessionError } = await supabase.auth.setSession({
           access_token: access_token as string,
           refresh_token: refresh_token as string,
         });
 
-        if (error) {
-          console.error('Error setting session from deep link:', error);
+        if (sessionError) {
+          console.error('Error setting session from deep link:', sessionError);
 
           // Check if token expired
-          if (error.message.toLowerCase().includes('expired')) {
+          if (sessionError.message.toLowerCase().includes('expired')) {
             Alert.alert(
               'Enlace Expirado',
               'El enlace ha expirado. Solicita uno nuevo.',
