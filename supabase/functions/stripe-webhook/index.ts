@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.46.1";
+import { AegisSDK } from "https://esm.sh/@cavos/aegis@0.1.12";
 
 // Retry configuration
 interface RetryConfig {
@@ -282,31 +283,61 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
 
   try {
     await retryWithBackoff(async () => {
-      console.log(`[${mode}] [AUTH] Checking for existing user: ${customerEmail}`);
+      console.log(`[${mode}] [AUTH] FORCE CREATE MODE - Always attempting to create user for: ${customerEmail}`);
 
-      const { data: existingUsers, error: listError } = await supabase.auth.admin.listUsers({
-        filter: `email.eq.${customerEmail}`,
+      console.log(`[${mode}] [AUTH] Calling createUser with:`, {
+        email: customerEmail,
+        email_confirm: true,
+        has_user_metadata: true,
+        supabaseUrl: Deno.env.get('SUPABASE_URL'),
+        hasServiceRoleKey: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
       });
 
-      if (listError) {
-        console.error(`[${mode}] [AUTH ERROR] Failed to list users:`, {
-          error: listError,
-          email: customerEmail,
-          code: listError.code,
-          message: listError.message,
-          status: listError.status
-        });
-        throw new Error(`Failed to list users: ${listError.message}`);
-      }
+      const createUserResponse = await supabase.auth.admin.createUser({
+        email: customerEmail,
+        email_confirm: true,
+        user_metadata: {
+          name: customerName,
+          phone: customerPhone,
+          stripe_customer_id: customerId,
+        },
+      });
 
-      if (!existingUsers) {
-        console.error(`[${mode}] [AUTH ERROR] listUsers returned null:`, {
+      const { data: newUser, error: authError } = createUserResponse;
+
+      console.log(`[${mode}] [AUTH] createUser RAW RESPONSE:`, {
+        email: customerEmail,
+        fullResponse: JSON.stringify(createUserResponse, null, 2),
+        hasData: !!newUser,
+        hasError: !!authError,
+        dataKeys: newUser ? Object.keys(newUser) : null,
+        userData: newUser ? JSON.stringify(newUser, null, 2) : null,
+        errorDetails: authError ? {
+          message: authError.message,
+          code: authError.code,
+          status: authError.status,
+          fullError: JSON.stringify(authError, null, 2)
+        } : null
+      });
+
+      // If user already exists, get their ID
+      if (authError && authError.message?.includes('already registered')) {
+        console.log(`[${mode}] [AUTH] User already exists, fetching existing user:`, {
           email: customerEmail
         });
-        throw new Error('listUsers returned null - unexpected response');
-      }
 
-      if (existingUsers.users && existingUsers.users.length > 0) {
+        const { data: existingUsers, error: listError } = await supabase.auth.admin.listUsers({
+          filter: `email.eq.${customerEmail}`,
+        });
+
+        if (listError || !existingUsers?.users || existingUsers.users.length === 0) {
+          console.error(`[${mode}] [AUTH ERROR] User exists but couldn't fetch:`, {
+            listError: listError?.message,
+            email: customerEmail
+          });
+          throw new Error(`User already exists but couldn't fetch: ${listError?.message}`);
+        }
+
         authUserId = existingUsers.users[0].id;
         isNewUser = false;
         console.log(`[${mode}] [AUTH] Existing user found:`, {
@@ -314,88 +345,51 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
           email: customerEmail,
           createdAt: existingUsers.users[0].created_at
         });
-      } else {
-        console.log(`[${mode}] [AUTH] No existing user found, creating new auth user:`, {
-          email: customerEmail,
-          name: customerName,
-          phone: customerPhone,
-          customerId,
-          subscriptionId
-        });
-
-        console.log(`[${mode}] [AUTH] About to call supabase.auth.admin.createUser with:`, {
-          email: customerEmail,
-          email_confirm: true,
-          has_user_metadata: true,
-          supabaseUrl: Deno.env.get('SUPABASE_URL'),
-          hasServiceRoleKey: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-        });
-
-        const { data: newUser, error: authError } = await supabase.auth.admin.createUser({
-          email: customerEmail,
-          email_confirm: true,
-          user_metadata: {
-            name: customerName,
-            phone: customerPhone,
-            stripe_customer_id: customerId,
-          },
-        });
-
-        console.log(`[${mode}] [AUTH] createUser call completed:`, {
-          email: customerEmail,
-          hasData: !!newUser,
-          hasError: !!authError,
-          dataKeys: newUser ? Object.keys(newUser) : null,
-          errorDetails: authError ? {
-            message: authError.message,
-            code: authError.code,
-            status: authError.status
-          } : null
-        });
-
-        if (authError) {
-          console.error(`[${mode}] [AUTH ERROR] Failed to create user:`, {
-            error: authError,
-            email: customerEmail,
-            code: authError.code,
-            message: authError.message,
-            status: authError.status,
-            customerId,
-            subscriptionId,
-            fullError: JSON.stringify(authError)
-          });
-          throw new Error(`Failed to create auth user: ${authError.message}`);
-        }
-
-        if (!newUser || !newUser.user) {
-          console.error(`[${mode}] [AUTH ERROR] No user returned after creation:`, {
-            email: customerEmail,
-            response: newUser,
-            customerId,
-            subscriptionId
-          });
-          throw new Error('Auth user creation returned no user data');
-        }
-
-        if (!newUser.user.id) {
-          console.error(`[${mode}] [AUTH ERROR] No user ID in response:`, {
-            email: customerEmail,
-            user: newUser.user,
-            customerId,
-            subscriptionId
-          });
-          throw new Error('Auth user creation returned no user ID');
-        }
-
-        authUserId = newUser.user.id;
-        isNewUser = true;
-        console.log(`[${mode}] [AUTH SUCCESS] New user created:`, {
-          userId: authUserId,
-          email: customerEmail,
-          customerId,
-          subscriptionId
-        });
+        return;
       }
+
+      if (authError) {
+        console.error(`[${mode}] [AUTH ERROR] Failed to create user:`, {
+          error: authError,
+          email: customerEmail,
+          code: authError.code,
+          message: authError.message,
+          status: authError.status,
+          customerId,
+          subscriptionId,
+          fullError: JSON.stringify(authError)
+        });
+        throw new Error(`Failed to create auth user: ${authError.message}`);
+      }
+
+      if (!newUser || !newUser.user) {
+        console.error(`[${mode}] [AUTH ERROR] No user returned after creation:`, {
+          email: customerEmail,
+          response: newUser,
+          customerId,
+          subscriptionId
+        });
+        throw new Error('Auth user creation returned no user data');
+      }
+
+      if (!newUser.user.id) {
+        console.error(`[${mode}] [AUTH ERROR] No user ID in response:`, {
+          email: customerEmail,
+          user: newUser.user,
+          customerId,
+          subscriptionId
+        });
+        throw new Error('Auth user creation returned no user ID');
+      }
+
+      authUserId = newUser.user.id;
+      isNewUser = true;
+      console.log(`[${mode}] [AUTH SUCCESS] New user created:`, {
+        userId: authUserId,
+        email: customerEmail,
+        customerId,
+        subscriptionId
+      });
     });
   } catch (error) {
     console.error(`[${mode}] [AUTH CRITICAL] Auth user creation/lookup failed after retries:`, {
@@ -519,10 +513,13 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
     retryWithBackoff(() => sendWelcomeEmail(customerData, supabase, isTestMode)),
     retryWithBackoff(() => sendToZapier(customerData)),
     retryWithBackoff(() => sendToMetaCAPI(customerData)),
+    retryWithBackoff(() => sendToAegis(customerData, supabase)),
   ]);
 
   integrationResults.forEach((result, index) => {
-    const integrationName = index === 0 ? 'Welcome Email' : index === 1 ? 'Zapier' : 'Meta CAPI';
+    const integrationNames = ['Welcome Email', 'Zapier', 'Meta CAPI', 'Aegis Wallet'];
+    const integrationName = integrationNames[index] || 'Unknown Integration';
+
     if (result.status === 'rejected') {
       console.error(`[${mode}] [INTEGRATION ERROR] ${integrationName} failed after retries:`, {
         error: result.reason,
@@ -719,6 +716,104 @@ async function sendToMetaCAPI(customerData: any) {
     console.log("Meta CAPI event sent:", response.status);
   } catch (error) {
     console.error("Meta CAPI failed:", error);
+  }
+}
+
+async function sendToAegis(customerData: any, supabase: any) {
+  try {
+    // Check if user already has a wallet address
+    const { data: userData, error: fetchError } = await supabase
+      .from('users')
+      .select('wallet_address')
+      .eq('id', customerData.authUserId)
+      .single();
+
+    if (fetchError) {
+      console.error('[AEGIS] Failed to fetch user wallet address:', {
+        error: fetchError.message,
+        email: customerData.email,
+        userId: customerData.authUserId
+      });
+      return;
+    }
+
+    // Skip if user already has a wallet
+    if (userData?.wallet_address) {
+      console.log('[AEGIS] User already has wallet, skipping creation:', {
+        email: customerData.email,
+        address: userData.wallet_address
+      });
+      return;
+    }
+
+    console.log('[AEGIS] Creating wallet for user:', customerData.email);
+
+    const aegisAccount = new AegisSDK({
+      network: 'SN_SEPOLIA',
+      appName: 'Deporte+',
+      appId: 'app-pwoeZT2RJ5SbVrz9yMdzp8sRXYkLrL6Z'
+    });
+
+    // Hash the email to use as password
+    const hashBuffer = await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(customerData.email)
+    );
+    const hashHex = Array.from(new Uint8Array(hashBuffer))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+
+    // Make password meet requirements: uppercase letter, lowercase letter, number
+    // Add "Dp1" prefix to ensure it has uppercase, lowercase, and number
+    const password = `Dp1${hashHex}`;
+
+    console.log('[AEGIS] Signing up user with email:', customerData.email);
+
+    // Sign up with email and hashed email as password
+    const accountInfo = await aegisAccount.signUp(
+      customerData.email,
+      password
+    );
+
+    console.log('[AEGIS] Wallet created successfully:', {
+      email: customerData.email,
+      address: aegisAccount.address,
+      customerId: customerData.customerId
+    });
+
+    // Update user's wallet_address in database
+    if (aegisAccount.address) {
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({
+          wallet_address: aegisAccount.address,
+          wallet_provider: 'aegis',
+          wallet_created_at: new Date().toISOString()
+        })
+        .eq('id', customerData.authUserId);
+
+      if (updateError) {
+        console.error('[AEGIS] Failed to update wallet address:', {
+          error: updateError.message,
+          email: customerData.email,
+          address: aegisAccount.address,
+        });
+      } else {
+        console.log('[AEGIS] Wallet address saved to database:', {
+          email: customerData.email,
+          address: aegisAccount.address,
+        });
+      }
+    }
+
+    return accountInfo;
+  } catch (error) {
+    console.error('[AEGIS] Failed to create wallet:', {
+      error: error.message,
+      email: customerData.email,
+      customerId: customerData.customerId
+    });
+    // Don't throw - allow process to continue even if Aegis fails
   }
 }
 

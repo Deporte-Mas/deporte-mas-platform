@@ -30,21 +30,15 @@ export default function Login() {
       return;
     }
 
-    // Temporary bypass: go directly to home tabs
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      router.replace("/(tabs)/home");
-    }, 500);
+    const result = await sendMagicLink(email);
+    setLoading(false);
 
-    // TODO: Uncomment this when ready to use real magic link
-    // const result = await sendMagicLink(email);
-    // setLoading(false);
-    // if (result.success) {
-    //   setSuccess(true);
-    // } else {
-    //   Alert.alert("Error", result.message);
-    // }
+    if (result.success) {
+      setSuccess(true);
+    } else {
+      Alert.alert("Error", result.message);
+    }
   };
 
   const handleBack = () => {
