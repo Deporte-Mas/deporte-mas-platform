@@ -244,7 +244,10 @@ serve(async (req) => {
 });
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabase: any, isTestMode = false) {
-  console.log(`[${isTestMode ? 'TEST' : 'LIVE'}] Checkout completed:`, session.id);
+  const startTime = Date.now();
+  const mode = isTestMode ? 'TEST' : 'LIVE';
+
+  console.log(`[${mode}] [INFO] Checkout completed - Session ID: ${session.id}`);
 
   // Extract customer details from checkout session
   const customerEmail = session.customer_details?.email;
@@ -253,48 +256,155 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
   const customerId = session.customer as string;
   const subscriptionId = session.subscription as string;
 
+  // Validate required email field
   if (!customerEmail) {
-    console.error('No email in checkout session');
-    return;
+    console.error(`[${mode}] [CRITICAL] No email in checkout session:`, {
+      sessionId: session.id,
+      customerId,
+      subscriptionId,
+      customerDetails: session.customer_details
+    });
+    throw new Error('No email in checkout session - cannot create user');
   }
 
-  console.log(`Customer email: ${customerEmail}`);
-  console.log(`Subscription ID: ${subscriptionId}`);
+  console.log(`[${mode}] [INFO] Processing checkout for customer:`, {
+    email: customerEmail,
+    name: customerName,
+    customerId,
+    subscriptionId
+  });
 
-  // STEP 1: Create or get auth user
+  // STEP 1: Create or get auth user (with retry logic)
   let authUserId: string | null = null;
   let isNewUser = false;
 
-  try {
-    const { data: existingUsers } = await supabase.auth.admin.listUsers({
-      filter: `email.eq.${customerEmail}`,
-    });
+  console.log(`[${mode}] [AUTH] Starting auth user creation/lookup for: ${customerEmail}`);
 
-    if (existingUsers && existingUsers.users.length > 0) {
-      authUserId = existingUsers.users[0].id;
-      console.log('Auth user already exists:', authUserId);
-    } else {
-      const { data: newUser, error: authError } = await supabase.auth.admin.createUser({
-        email: customerEmail,
-        email_confirm: true,
-        user_metadata: {
-          name: customerName,
-          phone: customerPhone,
-          stripe_customer_id: customerId,
-        },
+  try {
+    await retryWithBackoff(async () => {
+      console.log(`[${mode}] [AUTH] Checking for existing user: ${customerEmail}`);
+
+      const { data: existingUsers, error: listError } = await supabase.auth.admin.listUsers({
+        filter: `email.eq.${customerEmail}`,
       });
 
-      if (authError) {
-        console.error('Error creating auth user:', authError);
-        throw authError;
+      if (listError) {
+        console.error(`[${mode}] [AUTH ERROR] Failed to list users:`, {
+          error: listError,
+          email: customerEmail,
+          code: listError.code,
+          message: listError.message,
+          status: listError.status
+        });
+        throw new Error(`Failed to list users: ${listError.message}`);
       }
 
-      authUserId = newUser.user.id;
-      isNewUser = true;
-      console.log('Auth user created:', authUserId);
-    }
+      if (!existingUsers) {
+        console.error(`[${mode}] [AUTH ERROR] listUsers returned null:`, {
+          email: customerEmail
+        });
+        throw new Error('listUsers returned null - unexpected response');
+      }
+
+      if (existingUsers.users && existingUsers.users.length > 0) {
+        authUserId = existingUsers.users[0].id;
+        isNewUser = false;
+        console.log(`[${mode}] [AUTH] Existing user found:`, {
+          userId: authUserId,
+          email: customerEmail,
+          createdAt: existingUsers.users[0].created_at
+        });
+      } else {
+        console.log(`[${mode}] [AUTH] No existing user found, creating new auth user:`, {
+          email: customerEmail,
+          name: customerName,
+          phone: customerPhone,
+          customerId,
+          subscriptionId
+        });
+
+        console.log(`[${mode}] [AUTH] About to call supabase.auth.admin.createUser with:`, {
+          email: customerEmail,
+          email_confirm: true,
+          has_user_metadata: true,
+          supabaseUrl: Deno.env.get('SUPABASE_URL'),
+          hasServiceRoleKey: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+        });
+
+        const { data: newUser, error: authError } = await supabase.auth.admin.createUser({
+          email: customerEmail,
+          email_confirm: true,
+          user_metadata: {
+            name: customerName,
+            phone: customerPhone,
+            stripe_customer_id: customerId,
+          },
+        });
+
+        console.log(`[${mode}] [AUTH] createUser call completed:`, {
+          email: customerEmail,
+          hasData: !!newUser,
+          hasError: !!authError,
+          dataKeys: newUser ? Object.keys(newUser) : null,
+          errorDetails: authError ? {
+            message: authError.message,
+            code: authError.code,
+            status: authError.status
+          } : null
+        });
+
+        if (authError) {
+          console.error(`[${mode}] [AUTH ERROR] Failed to create user:`, {
+            error: authError,
+            email: customerEmail,
+            code: authError.code,
+            message: authError.message,
+            status: authError.status,
+            customerId,
+            subscriptionId,
+            fullError: JSON.stringify(authError)
+          });
+          throw new Error(`Failed to create auth user: ${authError.message}`);
+        }
+
+        if (!newUser || !newUser.user) {
+          console.error(`[${mode}] [AUTH ERROR] No user returned after creation:`, {
+            email: customerEmail,
+            response: newUser,
+            customerId,
+            subscriptionId
+          });
+          throw new Error('Auth user creation returned no user data');
+        }
+
+        if (!newUser.user.id) {
+          console.error(`[${mode}] [AUTH ERROR] No user ID in response:`, {
+            email: customerEmail,
+            user: newUser.user,
+            customerId,
+            subscriptionId
+          });
+          throw new Error('Auth user creation returned no user ID');
+        }
+
+        authUserId = newUser.user.id;
+        isNewUser = true;
+        console.log(`[${mode}] [AUTH SUCCESS] New user created:`, {
+          userId: authUserId,
+          email: customerEmail,
+          customerId,
+          subscriptionId
+        });
+      }
+    });
   } catch (error) {
-    console.error('Auth user creation/lookup failed:', error);
+    console.error(`[${mode}] [AUTH CRITICAL] Auth user creation/lookup failed after retries:`, {
+      error: error.message,
+      stack: error.stack,
+      email: customerEmail,
+      customerId,
+      subscriptionId
+    });
     throw error;
   }
 
@@ -302,76 +412,145 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
   let isNewSubscriber = false;
 
   if (authUserId) {
-    // Check if user has ever subscribed before
-    const { data: existingUser } = await supabase
-      .from('users')
-      .select('id, subscription_started_at')
-      .eq('id', authUserId)
-      .single();
+    console.log(`[${mode}] [DB] Checking subscription history for user: ${authUserId}`);
 
-    isNewSubscriber = !existingUser || !existingUser.subscription_started_at;
+    try {
+      const { data: existingUser, error: fetchError } = await supabase
+        .from('users')
+        .select('id, subscription_started_at, email')
+        .eq('id', authUserId)
+        .single();
 
-    const { error: upsertError } = await supabase
-      .from('users')
-      .upsert({
+      if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 = not found (acceptable)
+        console.error(`[${mode}] [DB ERROR] Failed to fetch user:`, {
+          error: fetchError,
+          userId: authUserId,
+          email: customerEmail,
+          code: fetchError.code,
+          message: fetchError.message
+        });
+      }
+
+      isNewSubscriber = !existingUser || !existingUser.subscription_started_at;
+
+      console.log(`[${mode}] [DB] Subscription status determined:`, {
+        userId: authUserId,
+        email: customerEmail,
+        isNewSubscriber,
+        hasExistingRecord: !!existingUser,
+        subscriptionStartedAt: existingUser?.subscription_started_at
+      });
+
+      const upsertData = {
         id: authUserId,
         email: customerEmail,
         name: customerName,
         phone: customerPhone,
         stripe_customer_id: customerId,
-        // Only set subscription_started_at for first-ever subscription
         ...(isNewSubscriber ? { subscription_started_at: new Date().toISOString() } : {}),
         updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'id'
+      };
+
+      console.log(`[${mode}] [DB] Upserting user record:`, {
+        userId: authUserId,
+        email: customerEmail,
+        willSetSubscriptionStartedAt: isNewSubscriber,
+        customerId
       });
 
-    if (upsertError) {
-      console.error('Error upserting user record:', upsertError);
-    } else {
-      console.log(`User record upserted (${isNewSubscriber ? 'FIRST' : 'RETURNING'} subscription)`);
+      const { error: upsertError } = await supabase
+        .from('users')
+        .upsert(upsertData, {
+          onConflict: 'id'
+        });
+
+      if (upsertError) {
+        console.error(`[${mode}] [DB ERROR] Failed to upsert user:`, {
+          error: upsertError,
+          userId: authUserId,
+          email: customerEmail,
+          code: upsertError.code,
+          message: upsertError.message,
+          customerId,
+          subscriptionId
+        });
+        // Don't throw - allow process to continue to magic link
+      } else {
+        console.log(`[${mode}] [DB SUCCESS] User record upserted:`, {
+          userId: authUserId,
+          email: customerEmail,
+          subscriberType: isNewSubscriber ? 'NEW' : 'RETURNING',
+          customerId
+        });
+      }
+    } catch (error) {
+      console.error(`[${mode}] [DB CRITICAL] Database operation failed:`, {
+        error: error.message,
+        stack: error.stack,
+        userId: authUserId,
+        email: customerEmail,
+        customerId,
+        subscriptionId
+      });
+      // Don't throw - allow process to continue
     }
   }
 
-  // STEP 3: Send integrations only for new subscribers
-  // Note: Subscription provisioning happens in invoice.paid event
-  if (isNewSubscriber) {
-    console.log('New subscriber - sending welcome email and integrations');
+  // STEP 3: Send welcome email to ALL subscribers (both new and returning)
+  console.log(`[${mode}] [EMAIL] Sending welcome email and integrations:`, {
+    email: customerEmail,
+    name: customerName,
+    customerId,
+    subscriptionId,
+    subscriberType: isNewSubscriber ? 'NEW' : 'RETURNING'
+  });
 
-    const customerData = {
-      email: customerEmail,
-      name: customerName,
-      phone: customerPhone,
-      customerId: customerId,
-      subscriptionId: subscriptionId,
-    };
+  const customerData = {
+    email: customerEmail,
+    name: customerName,
+    phone: customerPhone,
+    customerId: customerId,
+    subscriptionId: subscriptionId,
+    authUserId: authUserId,
+    isNewUser: isNewUser,
+  };
 
-    const integrationResults = await Promise.allSettled([
-      retryWithBackoff(() => sendWelcomeEmail(customerData, supabase)),
-      retryWithBackoff(() => sendToZapier(customerData)),
-      retryWithBackoff(() => sendToMetaCAPI(customerData)),
-    ]);
+  const integrationResults = await Promise.allSettled([
+    retryWithBackoff(() => sendWelcomeEmail(customerData, supabase, isTestMode)),
+    retryWithBackoff(() => sendToZapier(customerData)),
+    retryWithBackoff(() => sendToMetaCAPI(customerData)),
+  ]);
 
-    integrationResults.forEach((result, index) => {
-      const integrationName = index === 0 ? 'Welcome Email' : index === 1 ? 'Zapier' : 'Meta CAPI';
-      if (result.status === 'rejected') {
-        console.error(`${integrationName} integration failed after retries:`, result.reason);
-      } else {
-        console.log(`${integrationName} integration completed successfully`);
-      }
-    });
-  } else {
-    console.log('Returning subscriber - skipping welcome email and integrations');
+  integrationResults.forEach((result, index) => {
+    const integrationName = index === 0 ? 'Welcome Email' : index === 1 ? 'Zapier' : 'Meta CAPI';
+    if (result.status === 'rejected') {
+      console.error(`[${mode}] [INTEGRATION ERROR] ${integrationName} failed after retries:`, {
+        error: result.reason,
+        email: customerEmail,
+        customerId,
+        subscriptionId
+      });
+    } else {
+      console.log(`[${mode}] [INTEGRATION SUCCESS] ${integrationName} completed:`, {
+        email: customerEmail,
+        customerId
+      });
+    }
+  });
 
-    // TODO: Implement "Welcome Back" email for returning subscribers
-    // const welcomeBackData = {
-    //   email: customerEmail,
-    //   name: customerName,
-    //   customerId: customerId,
-    //   subscriptionId: subscriptionId,
-    // };
-    // await sendWelcomeBackEmail(welcomeBackData, supabase);
-  }
+  // SUMMARY LOG
+  const processingTime = Date.now() - startTime;
+  console.log(`[${mode}] [SUMMARY] Checkout processing completed:`, {
+    sessionId: session.id,
+    email: customerEmail,
+    customerId,
+    subscriptionId,
+    authUserId,
+    authUserCreated: isNewUser,
+    isNewSubscriber,
+    emailSent: true, // Always sent now
+    processingTimeMs: processingTime
+  });
 }
 
 async function handleInvoicePaid(invoice: Stripe.Invoice, supabase: any, stripe: Stripe, isTestMode = false) {
@@ -543,45 +722,161 @@ async function sendToMetaCAPI(customerData: any) {
   }
 }
 
-async function sendWelcomeEmail(customerData: any, supabase: any) {
+async function sendWelcomeEmail(customerData: any, supabase: any, isTestMode = false) {
+  const mode = isTestMode ? 'TEST' : 'LIVE';
+
+  console.log(`[${mode}] [MAGIC_LINK] Starting magic link generation:`, {
+    email: customerData.email,
+    name: customerData.name,
+    customerId: customerData.customerId,
+    subscriptionId: customerData.subscriptionId,
+    authUserId: customerData.authUserId,
+    isNewUser: customerData.isNewUser
+  });
+
   try {
-    const { data: magicLinkData, error: linkError } = await supabase.auth.admin.generateLink({
-      type: 'magiclink',
-      email: customerData.email,
-    });
+    // STEP 1: Skip magic link generation and just send a welcome-back email
+    // For returning subscribers, they already have an account and can log in normally
+    // We'll just send them a notification that their subscription is active
 
-    if (linkError) {
-      throw new Error(`Failed to generate magic link: ${linkError.message}`);
+    if (!customerData.isNewUser && !customerData.authUserId) {
+      console.error(`[${mode}] [CRITICAL] Existing user flagged but no authUserId provided:`, {
+        email: customerData.email,
+        isNewUser: customerData.isNewUser,
+        authUserId: customerData.authUserId
+      });
+      throw new Error('Existing user without authUserId - data inconsistency');
     }
 
-    if (!magicLinkData) {
-      throw new Error('No magic link data returned');
+    if (customerData.isNewUser) {
+      // For NEW users: Generate magic link for first-time access
+      console.log(`[${mode}] [MAGIC_LINK] Generating magic link for NEW user: ${customerData.email}`);
+
+      const { data: magicLinkData, error: linkError } = await supabase.auth.admin.generateLink({
+        type: 'magiclink',
+        email: customerData.email,
+      });
+
+      if (linkError) {
+        console.error(`[${mode}] [MAGIC_LINK ERROR] Failed to generate magic link:`, {
+          error: linkError,
+          email: customerData.email,
+          code: linkError.code,
+          message: linkError.message,
+          status: linkError.status,
+          customerId: customerData.customerId,
+          subscriptionId: customerData.subscriptionId
+        });
+        throw new Error(`Failed to generate magic link: ${linkError.message}`);
+      }
+
+      if (!magicLinkData || !magicLinkData.properties || !magicLinkData.properties.action_link) {
+        console.error(`[${mode}] [MAGIC_LINK ERROR] Invalid magic link data:`, {
+          email: customerData.email,
+          magicLinkData,
+          customerId: customerData.customerId
+        });
+        throw new Error('No action_link in magic link data');
+      }
+
+      console.log(`[${mode}] [MAGIC_LINK SUCCESS] Magic link generated for NEW user:`, {
+        email: customerData.email,
+        hasActionLink: true,
+        customerId: customerData.customerId
+      });
+
+      // Send welcome email with magic link
+      const { sendEmail, generateWelcomeEmail } = await import('../_shared/resend.ts');
+      const emailContent = generateWelcomeEmail(
+        customerData.email,
+        customerData.name,
+        magicLinkData.properties.action_link
+      );
+
+      console.log(`[${mode}] [EMAIL] Sending welcome email with magic link to NEW user`);
+
+      const emailResult = await sendEmail({
+        to: customerData.email,
+        subject: emailContent.subject,
+        html: emailContent.html,
+        text: emailContent.text,
+      });
+
+      if (!emailResult || !emailResult.id) {
+        console.error(`[${mode}] [EMAIL ERROR] Email send failed:`, {
+          email: customerData.email,
+          hasResult: !!emailResult,
+          customerId: customerData.customerId
+        });
+        throw new Error('Email send failed - no result returned');
+      }
+
+      console.log(`[${mode}] [EMAIL SUCCESS] Welcome email sent:`, {
+        email: customerData.email,
+        emailId: emailResult.id,
+        customerId: customerData.customerId
+      });
+
+      return emailResult;
+    } else {
+      // For EXISTING/RETURNING users: Send welcome-back email WITHOUT magic link
+      // They can log in using their existing credentials or request a new magic link
+      console.log(`[${mode}] [EMAIL] Sending welcome-back email to RETURNING user (no magic link needed): ${customerData.email}`);
+
+      const { sendEmail } = await import('../_shared/resend.ts');
+
+      const emailContent = {
+        subject: '¡Bienvenido de vuelta a Deporte+! 🎉',
+        html: `
+          <h1>¡Hola ${customerData.name || 'amigo'}!</h1>
+          <p>Tu suscripción a Deporte+ ha sido renovada exitosamente.</p>
+          <p>Ya puedes acceder a todo nuestro contenido exclusivo:</p>
+          <ul>
+            <li>Transmisiones en vivo</li>
+            <li>Videos exclusivos</li>
+            <li>Cursos de formación</li>
+            <li>Y mucho más...</li>
+          </ul>
+          <p><a href="${Deno.env.get('FRONTEND_URL') || 'https://deportemas.com'}/login" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block; margin: 20px 0;">Acceder a Deporte+</a></p>
+          <p>Si tienes problemas para acceder, puedes solicitar un nuevo enlace de acceso desde la página de inicio de sesión.</p>
+          <p>¡Gracias por ser parte de la familia Deporte+!</p>
+        `,
+        text: `¡Hola ${customerData.name || 'amigo'}!\n\nTu suscripción a Deporte+ ha sido renovada exitosamente.\n\nYa puedes acceder a todo nuestro contenido exclusivo.\n\nAccede aquí: ${Deno.env.get('FRONTEND_URL') || 'https://deportemas.com'}/login\n\n¡Gracias por ser parte de la familia Deporte+!`
+      };
+
+      const emailResult = await sendEmail({
+        to: customerData.email,
+        subject: emailContent.subject,
+        html: emailContent.html,
+        text: emailContent.text,
+      });
+
+      if (!emailResult || !emailResult.id) {
+        console.error(`[${mode}] [EMAIL ERROR] Welcome-back email send failed:`, {
+          email: customerData.email,
+          hasResult: !!emailResult,
+          customerId: customerData.customerId
+        });
+        throw new Error('Welcome-back email send failed');
+      }
+
+      console.log(`[${mode}] [EMAIL SUCCESS] Welcome-back email sent:`, {
+        email: customerData.email,
+        emailId: emailResult.id,
+        customerId: customerData.customerId,
+        type: 'welcome-back'
+      });
+
+      return emailResult;
     }
-
-    console.log('Magic link generated successfully');
-
-    // Send welcome email via Resend
-    const { sendEmail, generateWelcomeEmail } = await import('../_shared/resend.ts');
-    const emailContent = generateWelcomeEmail(
-      customerData.email,
-      customerData.name,
-      magicLinkData.properties.action_link
-    );
-
-    const emailResult = await sendEmail({
-      to: customerData.email,
-      subject: emailContent.subject,
-      html: emailContent.html,
-      text: emailContent.text,
-    });
-
-    if (!emailResult) {
-      throw new Error('Email send failed - no result returned');
-    }
-
-    console.log('Welcome email sent:', emailResult.id);
   } catch (error) {
-    console.error("Welcome email failed:", error);
+    console.error(`[${mode}] [WELCOME_EMAIL CRITICAL] Welcome email process failed:`, {
+      error: error.message,
+      stack: error.stack,
+      email: customerData.email,
+      customerId: customerData.customerId,
+      subscriptionId: customerData.subscriptionId
+    });
     throw error; // Re-throw for retry mechanism
   }
 }
