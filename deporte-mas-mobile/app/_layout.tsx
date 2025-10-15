@@ -9,6 +9,8 @@ import * as SplashScreen from "expo-splash-screen";
 import { fontAssets } from "../constants/Typography";
 import { Theme } from "../constants/Theme";
 import { SplashVideo } from "../components/SplashVideo";
+import { AegisProvider } from "@cavos/aegis";
+import { AEGIS_CONFIG } from "../config/aegis";
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -50,7 +52,7 @@ export default function RootLayout() {
     const handleDeepLink = async (event: { url: string }) => {
       try {
         const url = event.url;
-        console.log('Deep link received:', url);
+        console.log("Deep link received:", url);
 
         // Parse both query params and hash fragments
         // Supabase sends tokens in hash fragment (#) not query params (?)
@@ -67,66 +69,74 @@ export default function RootLayout() {
         if (hashMatch) {
           const hashString = hashMatch[1];
           // Parse hash params (format: key=value&key2=value2)
-          hashString.split('&').forEach(param => {
-            const [key, value] = param.split('=');
+          hashString.split("&").forEach((param) => {
+            const [key, value] = param.split("=");
             if (key && value) {
               params[key] = decodeURIComponent(value);
             }
           });
         }
 
-        console.log('Parsed params:', params);
+        console.log("Parsed params:", params);
 
-        const { access_token, refresh_token, type, error, error_code, error_description } = params;
+        const {
+          access_token,
+          refresh_token,
+          type,
+          error,
+          error_code,
+          error_description,
+        } = params;
 
         // Check if there's an error in the callback
         if (error || error_code) {
-          console.log('Deep link error:', { error, error_code, error_description });
+          console.log("Deep link error:", {
+            error,
+            error_code,
+            error_description,
+          });
 
           // Handle expired OTP
-          if (error_code === 'otp_expired' || error_description?.includes('expired')) {
+          if (
+            error_code === "otp_expired" ||
+            error_description?.includes("expired")
+          ) {
             Alert.alert(
-              'Enlace Expirado',
-              'El enlace ha expirado. Solicita uno nuevo.',
-              [{ text: 'OK' }]
+              "Enlace Expirado",
+              "El enlace ha expirado. Solicita uno nuevo.",
+              [{ text: "OK" }]
             );
           }
           // Handle access denied or other errors
           else {
             const message = error_description
-              ? decodeURIComponent(error_description.replace(/\+/g, ' '))
-              : 'No se pudo iniciar sesión. Intenta nuevamente.';
+              ? decodeURIComponent(error_description.replace(/\+/g, " "))
+              : "No se pudo iniciar sesión. Intenta nuevamente.";
 
-            Alert.alert(
-              'Error',
-              message,
-              [{ text: 'OK' }]
-            );
+            Alert.alert("Error", message, [{ text: "OK" }]);
           }
           return;
         }
 
         // Validate this is a magic link callback
-        if (type !== 'magiclink') {
-          console.log('Not a magic link, ignoring');
+        if (type !== "magiclink") {
+          console.log("Not a magic link, ignoring");
           return;
         }
 
         // Validate tokens are present
         if (!access_token || !refresh_token) {
-          console.error('Missing tokens in magic link URL');
-          Alert.alert(
-            'Error',
-            'Enlace inválido. Solicita uno nuevo.',
-            [{ text: 'OK' }]
-          );
+          console.error("Missing tokens in magic link URL");
+          Alert.alert("Error", "Enlace inválido. Solicita uno nuevo.", [
+            { text: "OK" },
+          ]);
           return;
         }
 
         // Show loading state while processing authentication
         setProcessingAuth(true);
 
-        console.log('Processing magic link authentication...');
+        console.log("Processing magic link authentication...");
 
         // Set the session with the tokens from the magic link
         const { error: sessionError } = await supabase.auth.setSession({
@@ -135,20 +145,20 @@ export default function RootLayout() {
         });
 
         if (sessionError) {
-          console.error('Error setting session from deep link:', sessionError);
+          console.error("Error setting session from deep link:", sessionError);
 
           // Check if token expired
-          if (sessionError.message.toLowerCase().includes('expired')) {
+          if (sessionError.message.toLowerCase().includes("expired")) {
             Alert.alert(
-              'Enlace Expirado',
-              'El enlace ha expirado. Solicita uno nuevo.',
-              [{ text: 'OK' }]
+              "Enlace Expirado",
+              "El enlace ha expirado. Solicita uno nuevo.",
+              [{ text: "OK" }]
             );
           } else {
             Alert.alert(
-              'Error',
-              'No se pudo iniciar sesión. Intenta nuevamente.',
-              [{ text: 'OK' }]
+              "Error",
+              "No se pudo iniciar sesión. Intenta nuevamente.",
+              [{ text: "OK" }]
             );
           }
 
@@ -156,19 +166,18 @@ export default function RootLayout() {
           return;
         }
 
-        console.log('Successfully authenticated from magic link!');
+        console.log("Successfully authenticated from magic link!");
         // AuthContext will handle navigation via onAuthStateChange
         setProcessingAuth(false);
-
       } catch (error) {
-        console.error('Deep link handling error:', error);
+        console.error("Deep link handling error:", error);
         setProcessingAuth(false);
         // Silent fail - don't crash the app on malformed URLs
       }
     };
 
     // Listen for deep link events (warm start - app in background)
-    const subscription = Linking.addEventListener('url', handleDeepLink);
+    const subscription = Linking.addEventListener("url", handleDeepLink);
 
     // Handle initial URL if app was opened from a deep link (cold start - app closed)
     Linking.getInitialURL().then((url) => {
@@ -184,7 +193,7 @@ export default function RootLayout() {
 
   // Handle font loading error
   if (fontError) {
-    console.error('Font loading error:', fontError);
+    console.error("Font loading error:", fontError);
     // Continue with system fonts
   }
 
@@ -206,14 +215,16 @@ export default function RootLayout() {
   }
 
   return (
-    <AuthProvider>
-      <NavigationHandler />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: Theme.colors.background },
-        }}
-      />
-    </AuthProvider>
+    <AegisProvider config={AEGIS_CONFIG}>
+      <AuthProvider>
+        <NavigationHandler />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: Theme.colors.background },
+          }}
+        />
+      </AuthProvider>
+    </AegisProvider>
   );
 }
