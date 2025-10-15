@@ -8,7 +8,7 @@ use starknet::ContractAddress;
 // ===============================
 
 #[starknet::interface]
-trait IMembershipNFT<TContractState> {
+pub trait IMembershipNFT<TContractState> {
     // Membership functions
     fn mint_membership(ref self: TContractState, user: ContractAddress, tier: u8);
     fn burn_membership(ref self: TContractState, user: ContractAddress);
@@ -34,7 +34,7 @@ struct MembershipData {
 // ===============================
 
 #[starknet::contract]
-mod MembershipNFT {
+pub mod MembershipNFT {
     use core::num::traits::Zero;
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::introspection::src5::SRC5Component;
@@ -48,7 +48,6 @@ mod MembershipNFT {
 
     impl ERC721InternalImpl = ERC721Component::InternalImpl<ContractState>;
     impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
-
 
     // ===============================
     // Storage
@@ -99,9 +98,6 @@ mod MembershipNFT {
     // ===============================
     // External
     // ===============================
-
-    #[abi(embed_v0)]
-    impl ERC721MixinImpl = ERC721Component::ERC721MixinImpl<ContractState>;
     #[abi(embed_v0)]
     impl OwnableMixinImpl = OwnableComponent::OwnableMixinImpl<ContractState>;
     #[abi(embed_v0)]
