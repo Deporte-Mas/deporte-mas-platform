@@ -14,10 +14,89 @@ import { Config } from "../../config";
 import { ThemedView, ThemedText, Card } from "../../components/themed";
 import { Theme } from "../../constants/Theme";
 import { Header } from "../../components/Header";
+import { useAegis } from "@cavos/aegis";
+import { useEffect, useState } from "react";
+import { useAuth } from "../../contexts/AuthContext";
+import * as Crypto from "expo-crypto";
 
 const { width: screenWidth } = Dimensions.get("window");
 
 export default function Home() {
+  const { aegisAccount } = useAegis();
+  const { user } = useAuth();
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [hasLoggedInToAegis, setHasLoggedInToAegis] = useState(false);
+
+  const generatePassword = async (email: string): Promise<string> => {
+    try {
+      const hashHex = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        email,
+        { encoding: Crypto.CryptoEncoding.HEX }
+      );
+      const password = `Dp1${hashHex}`;
+      return password;
+    } catch (error) {
+      console.error("Error generando contraseña:", error);
+      throw error;
+    }
+  };
+
+  useEffect(() => {
+    const handleAegisLogin = async () => {
+      if (!user?.email) {
+        console.log("Usuario no autenticado, saltando login con Aegis");
+        return;
+      }
+
+      // Verificar que no estemos ya en proceso de login
+      if (isLoggingIn) {
+        console.log("Ya hay un login en proceso, saltando");
+        return;
+      }
+
+      // Verificar que no hayamos ya hecho login con Aegis para este usuario
+      if (hasLoggedInToAegis) {
+        console.log("Ya se hizo login con Aegis para este usuario, saltando");
+        return;
+      }
+
+      try {
+        setIsLoggingIn(true);
+        console.log("Iniciando login con Aegis para:", user.email);
+
+        // Generar contraseña usando el mismo algoritmo del servidor
+        const password = await generatePassword(user.email);
+
+        // Hacer signIn con Aegis (el usuario ya debe existir creado por el webhook de Stripe)
+        const result = await aegisAccount.signIn(user.email, password);
+        console.log("Login con Aegis exitoso");
+        setHasLoggedInToAegis(true);
+      } catch (error) {
+        console.error("Error en login con Aegis:", error);
+      } finally {
+        setIsLoggingIn(false);
+      }
+    };
+
+    // Ejecutar login cuando el componente se monta y tenemos usuario
+    handleAegisLogin();
+  }, [aegisAccount, user?.email]);
+
+  // Resetear el estado de login cuando el usuario cambie
+  useEffect(() => {
+    if (user?.email) {
+      console.log(
+        "Usuario detectado, reseteando estado de Aegis para:",
+        user.email
+      );
+      setHasLoggedInToAegis(false);
+    } else {
+      console.log("No hay usuario, reseteando estado de Aegis");
+      setHasLoggedInToAegis(false);
+    }
+  }, [user?.email]);
+
   return (
     <ThemedView style={styles.container}>
       <StatusBar style="light" hidden={true} />
@@ -53,7 +132,9 @@ export default function Home() {
 
         {/* Volver a ver Section */}
         <View style={styles.replaySection}>
-          <ThemedText variant="title" style={styles.replayTitle}>Volver a ver</ThemedText>
+          <ThemedText variant="title" style={styles.replayTitle}>
+            Volver a ver
+          </ThemedText>
           <View style={styles.replayGrid}>
             {/* Stream 1 */}
             <TouchableOpacity

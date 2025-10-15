@@ -41,15 +41,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event);
+      console.log('Auth state changed:', event, session?.user?.email || 'No user');
 
       if (session?.user) {
+        console.log('Usuario autenticado:', session.user.email);
         setUser({
           id: session.user.id,
           email: session.user.email || '',
           name: session.user.user_metadata?.name,
         });
       } else {
+        console.log('Usuario desautenticado, limpiando estado');
         setUser(null);
       }
     });
@@ -64,8 +66,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    await auth.logout();
-    setUser(null);
+    try {
+      console.log('Iniciando logout...');
+      await auth.logout();
+      // Forzar limpieza del estado local
+      setUser(null);
+      console.log('Logout completado, usuario limpiado');
+    } catch (error) {
+      console.error('Error durante logout:', error);
+      // Aún así limpiar el estado local
+      setUser(null);
+    }
   };
 
   const value: AuthContextType = {
