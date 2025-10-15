@@ -2,15 +2,28 @@
 
 > **Transforming Costa Rica's most beloved sports program into an intimate digital community where legendary players and passionate fans experience football together every day—powered by invisible Web3 technology.**
 
-## 🌟 Key Innovation: Invisible Blockchain
+## 🌟 Key Innovation: Loyalty Rewards That Actually Belong to You
 
-DeporteMas pioneered the **"Invisible Web3"** approach: users earn blockchain tokens, own NFTs, and participate in provably fair giveaways—**without ever knowing they're using blockchain technology**.
+DeporteMas built a next-generation loyalty system where your points, rewards, and achievements are truly yours—powered by blockchain technology you never have to think about.
 
-- **What users see:** "You earned 150 points today!"
-- **What's happening:** ERC-20 tokens minted on Starknet
-- **Why it matters:** True ownership, transparent fairness, and automatic rewards—all without crypto complexity
+### How It Works (From the User's Perspective)
 
-**Powered by Starknet** for scalable, low-cost blockchain operations with account abstraction.
+**Day 1:** Subscribe to DeporteMas
+→ Watch exclusive content, chat during live streams, engage with the community
+
+**Day 7:** Open the app
+→ "You've earned 150 points this week! Enter today's jersey giveaway."
+
+**Day 30:** Check your profile
+→ See all your achievement badges, accumulated points, and giveaway entries
+
+**What Makes This Different:**
+- **Your points can't disappear** - Unlike traditional loyalty programs, your DeportePoints are actual tokens you own
+- **Provably fair giveaways** - Winner selection is transparent and verifiable, not a black box
+- **Automatic rewards** - Daily points accumulate based on subscription loyalty, no manual claiming
+- **True achievement ownership** - Your milestone badges and collectibles are NFTs that belong to you forever
+
+**Powered by Starknet** - The blockchain runs silently in the background, ensuring fairness, ownership, and automatic rewards without any crypto complexity.
 
 ---
 
@@ -76,15 +89,6 @@ User Activity → Backend Verification → Engagement Rewards
     ↓
 Giveaway Entry → VRF Selection → Prize Distribution
 ```
-
-### Critical Design Principle
-
-**⚠️ Starknet is an enhancement layer, NOT a gatekeeper:**
-- ✅ **Access Control:** Stripe subscription status (traditional)
-- ❌ **Not Access Control:** Blockchain NFTs or tokens
-- 🎁 **Web3 Adds:** Transparency, ownership, yield, provable fairness
-
-If Starknet fails, the platform continues operating with traditional loyalty systems via feature flags.
 
 ---
 
