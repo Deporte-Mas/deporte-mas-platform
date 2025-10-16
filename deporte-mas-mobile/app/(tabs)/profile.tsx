@@ -5,6 +5,8 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
@@ -13,12 +15,49 @@ import { ThemedView, ThemedText, Card } from "../../components/themed";
 import { Theme } from "../../constants/Theme";
 import { useAuth } from "../../contexts/AuthContext";
 import { Header } from "../../components/Header";
+import { useAegis } from "@cavos/aegis";
+import { useState, useEffect } from "react";
+
+const DEPORTE_MAS_POINTS = process.env.EXPO_PUBLIC_DEPORTE_MAS_POINTS || '';
 
 export default function Profile() {
-  const { logout } = useAuth();
-  const userEmail = "emmanuelaguerorojas@gmail.com";
-  const points = 229;
+  const { logout, user } = useAuth();
+  const { aegisAccount } = useAegis();
+  const [points, setPoints] = useState<number | null>(null);
+  const [loadingPoints, setLoadingPoints] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const multiplier = 2;
+
+  // Fetch token balance function
+  const fetchBalance = async () => {
+    if (!aegisAccount || !DEPORTE_MAS_POINTS) {
+      setLoadingPoints(false);
+      return;
+    }
+
+    try {
+      setLoadingPoints(true);
+      const balance = await aegisAccount.getTokenBalance(DEPORTE_MAS_POINTS, 18);
+      setPoints(Number(balance));
+    } catch (error) {
+      console.error('Error fetching token balance:', error);
+      setPoints(0);
+    } finally {
+      setLoadingPoints(false);
+    }
+  };
+
+  // Fetch on mount and when aegisAccount changes
+  useEffect(() => {
+    fetchBalance();
+  }, [aegisAccount]);
+
+  // Handle pull-to-refresh
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchBalance();
+    setRefreshing(false);
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -68,7 +107,17 @@ export default function Profile() {
     <ThemedView style={styles.container}>
       <StatusBar style="light" hidden={true} />
 
-      <ScrollView style={styles.scrollView}>
+      <ScrollView
+        style={styles.scrollView}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="white"
+            colors={["white"]}
+          />
+        }
+      >
         <Header />
 
         {/* Profile Icon */}
@@ -76,13 +125,19 @@ export default function Profile() {
           <View style={styles.profileIconContainer}>
             <Ionicons name="person-outline" size={60} color="white" />
           </View>
-          <ThemedText variant="body" style={styles.emailText}>{userEmail}</ThemedText>
+          <ThemedText variant="body" style={styles.emailText}>{user?.email || 'No email'}</ThemedText>
         </View>
 
         {/* Points Section */}
         <View style={styles.pointsSection}>
           <ThemedText variant="body" style={styles.pointsLabel}>Tus puntos</ThemedText>
-          <ThemedText variant="title" style={styles.pointsValue}>{points}</ThemedText>
+          {loadingPoints ? (
+            <ActivityIndicator size="large" color="white" style={styles.pointsLoader} />
+          ) : (
+            <ThemedText variant="title" style={styles.pointsValue}>
+              {points !== null ? Math.floor(points) : 0}
+            </ThemedText>
+          )}
           <ThemedText variant="body" style={styles.multiplierText}>
             Current multiplier ({multiplier}x)
           </ThemedText>
@@ -171,6 +226,9 @@ const styles = StyleSheet.create({
   pointsValue: {
     fontSize: 64,
     marginBottom: 5,
+  },
+  pointsLoader: {
+    marginVertical: 20,
   },
   multiplierText: {
     opacity: 0.7,

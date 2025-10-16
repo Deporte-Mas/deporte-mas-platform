@@ -10,10 +10,10 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { ThemedView, ThemedText, Card } from "../../components/themed";
 import { Theme } from "../../constants/Theme";
-import { Config } from "../../config";
 import { Header } from "../../components/Header";
 
 export default function Play() {
+
   return (
     <ThemedView style={styles.container}>
       <StatusBar style="light" hidden={true} />

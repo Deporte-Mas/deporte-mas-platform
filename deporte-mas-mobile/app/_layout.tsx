@@ -25,9 +25,10 @@ function NavigationHandler() {
     if (isLoading) return;
 
     const inAuthGroup = segments[0] === "(tabs)";
+    const inPublicRoute = segments[0] === "login" || segments[0] === undefined || segments.length === 0;
 
-    // Redirect to home if authenticated and on login screen
-    if (isAuthenticated && !inAuthGroup) {
+    // Redirect to home if authenticated and on login/landing screen
+    if (isAuthenticated && inPublicRoute) {
       router.replace("/(tabs)/home");
     }
     // Redirect to landing if not authenticated and trying to access protected routes

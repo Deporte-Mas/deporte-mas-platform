@@ -10,13 +10,15 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Video, ResizeMode } from "expo-av";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { ThemedView, ThemedText, Card } from "../components/themed";
 import { Theme } from "../constants/Theme";
 import muxExpoAv from "@codebayu/mux-data-expo-av";
 import { Config } from "../config";
+import { useAegis } from "@cavos/aegis";
+import { watchedVideo } from "@/lib/rewards";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -46,9 +48,15 @@ export default function Program() {
   // Generate unique video ID for Mux monitoring
   const muxVideoId = `${playbackId}_${programTitle.replace(/\s+/g, "_")}`;
 
+  const { aegisAccount } = useAegis();
+
+  async function handleWatchedVideo() {
+    await watchedVideo(aegisAccount?.address || '');
+  }
+
   const handlePlaybackStatusUpdate = (status: any) => {
     if (status.isLoaded) {
-      setIsLoading(false);
+      setIsLoading(false); 
     }
   };
 
@@ -60,6 +68,10 @@ export default function Program() {
     );
     setIsLoading(false);
   };
+
+  useEffect(() => {
+    handleWatchedVideo();
+  }, []);
 
   return (
     <ThemedView style={styles.container}>

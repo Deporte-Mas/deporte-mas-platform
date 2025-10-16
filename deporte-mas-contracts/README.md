@@ -675,3 +675,9 @@ This smart contract architecture provides DeporteMas with a robust, scalable Web
 ---
 
 *This document serves as the master specification for all smart contract development. All implementation decisions should reference and align with these specifications.*
+
+sncast \
+  deploy \
+  --class-hash 0x025993746751109b2b57e763898adec04ca5eb5178017cf0dc7c8f61040888cd \
+  --arguments '0x7fc33af06dad3891b7a050d4d0c9f09126f811f62989dccebb5cd5da6d2713e, 0x7fc33af06dad3891b7a050d4d0c9f09126f811f62989dccebb5cd5da6d2713e, 0x7fc33af06dad3891b7a050d4d0c9f09126f811f62989dccebb5cd5da6d2713e, 0x7fc33af06dad3891b7a050d4d0c9f09126f811f62989dccebb5cd5da6d2713e'\
+  --network sepolia
